@@ -66,7 +66,7 @@ async function run() {
             }
             const existingUser= await usersCollection.findOne({email: user?.email});
             if(existingUser){
-                return res.status(200).send({message: 'User already exists.'})
+                return res.status(200).send({message: 'User already exists in the database.'})
             };
             const result=await usersCollection.insertOne(user);
             res.send(result);
@@ -74,6 +74,17 @@ async function run() {
             console.error('Error creating user', error);
             res.status(500).send({message: 'Server error.'})
         }
+    });
+    // users/patch last login time update
+    app.patch('/users/last-login', async(req,res)=>{
+      const email=req.body.email;
+      const last_login=req.body.last_login;
+      try{
+        const result=await usersCollection.updateOne({email},{$set: {last_login}});
+        res.send({message: 'Last login time updated', result})
+      }catch(error){
+        res.status(500).send({error: error?.message})
+      }
     })
     // Send a ping to confirm a successful connection
     // await client.db("admin").command({ ping: 1 });
