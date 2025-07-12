@@ -19,10 +19,18 @@ admin.initializeApp({
 });
 
 // middle wire
+const allowedOrigins=['http://localhost:5173', 'https://flexora-188f4.web.app']
 app.use(cors({
-  origin: ['http://localhost:5173', 'https://flexora-188f4.web.app/'],
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true
 }));
+
 app.use(express.json());
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
@@ -107,7 +115,8 @@ async function run() {
       const transection=req.body;
       transection.request_time= new Date();
       try{
-        const result= await transectionCollection.insertOne(transection)
+        const result= await transectionCollection.insertOne(transection);
+        res.send({message: 'Transection saved successfully.', result})
       }catch(error){
         res.status(500).send({message: 'Failed to save transection', error})
       }
@@ -136,6 +145,7 @@ async function run() {
     // users get user by email 
     app.get('/users', async(req, res)=>{
       const email=req.query.email;
+      console.log(email)
       const user_by_email=await usersCollection.findOne({email});
       res.send({user_by_email: user_by_email})
     });
