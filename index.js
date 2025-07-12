@@ -3,6 +3,7 @@ const express=require('express');
 const cors = require('cors');
 const { MongoClient, ServerApiVersion } = require('mongodb');  // mongodb
 const admin = require("firebase-admin");
+const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const app=express();
 const port=process.env.PORT || 4000;
 
@@ -37,6 +38,7 @@ async function run() {
   try {
     const db=client.db('foodDB');  // database
     const usersCollection=db.collection('users') //collection
+    const transectionCollection=db.collection('transections') //collection
 
     // custom middle wire
     const verifyFirebaseToken=async(req,res,next)=>{
@@ -86,12 +88,57 @@ async function run() {
         res.status(500).send({error: error?.message})
       }
     });
-    // users get role by email 
-    app.get('/users/role', async(req, res)=>{
-      const email=req.query.email;
-      const user=await usersCollection.findOne({email});
-      res.send({role: user?.role || 'user'})
+    // stripe create-payment-intent
+    app.post('/create-payment-intent', verifyFirebaseToken, async(req,res)=>{
+      const {amount}=req.body;
+      try{
+        const paymentIntent=await stripe.paymentIntents.create({
+          amount: amount*100,
+          currency: 'USD',
+          payment_method_types: ['card']
+        });
+        res.send({clientSecret: paymentIntent.client_secret});
+      }catch(error){
+        res.status(500).send({message: 'Failed to create payment intent', error})
+      }
+    });
+    // stripe save transection after successful payment
+    app.post('/save-transection', verifyFirebaseToken, async(req, res)=>{
+      const transection=req.body;
+      transection.request_time= new Date();
+      try{
+        const result= await transectionCollection.insertOne(transection)
+      }catch(error){
+        res.status(500).send({message: 'Failed to save transection', error})
+      }
     })
+    // users patch charity role request
+    app.patch(`/users/charity_request/:email`, verifyFirebaseToken,async(req,res)=>{
+      const email=req.params.email;
+      const {organization_name, mission}=req.body;
+      if(req.decoded.email!==email){
+        return res.status(403).send({message: 'Forbidden email mismatch from charity role request.'})
+      }
+      try{
+        const updateResult= await usersCollection.updateOne({email},{
+          $set: {
+            organization_name,
+            mission,
+            role: 'charity_role_request',
+            charity_request_time: new Date()
+          }
+        });
+        res.send({message: 'Charity role request submitted', updateResult})
+      }catch(error){
+        res.status(500).send({error: 'Failed to update user data'})
+      }
+    })
+    // users get user by email 
+    app.get('/users', async(req, res)=>{
+      const email=req.query.email;
+      const user_by_email=await usersCollection.findOne({email});
+      res.send({user_by_email: user_by_email})
+    });
     // Send a ping to confirm a successful connection
     // await client.db("admin").command({ ping: 1 });
     // console.log("Pinged your deployment. You successfully connected to MongoDB!");
