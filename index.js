@@ -47,7 +47,16 @@ async function run() {
     const db=client.db('foodDB');  // database
     const usersCollection=db.collection('users') //collection
     const transectionCollection=db.collection('transections') //collection
-
+    // const result1 = await usersCollection.updateOne(
+    //   { email: 'shifa@gmail.com' },
+    //   { $set: { role_request_status: 'Pending' } }
+    // );
+    // console.log('✅ Static update done:', result1.modifiedCount);
+    // const result2 = await usersCollection.updateOne(
+    //   { email: 'beauty@gmail.com' },
+    //   { $set: { role_request_status: 'Pending' } }
+    // );
+    // console.log('✅ Static update done:', result2.modifiedCount);
     // custom middle wire
     const verifyFirebaseToken=async(req,res,next)=>{
         const authHeader=req.headers.authorization;
@@ -121,34 +130,34 @@ async function run() {
         res.status(500).send({message: 'Failed to save transection', error})
       }
     })
-    // users patch charity role request
-    app.patch(`/users/charity_request/:email`, verifyFirebaseToken,async(req,res)=>{
+    // users patch role request
+    app.patch(`/users/role_request/:email`, verifyFirebaseToken,async(req,res)=>{
       const email=req.params.email;
-      const {organization_name, mission}=req.body;
+      const updatedDoc=req.body;
       if(req.decoded.email!==email){
-        return res.status(403).send({message: 'Forbidden email mismatch from charity role request.'})
+        return res.status(403).send({message: 'Forbidden email mismatch from role request.'})
       }
       try{
         const updateResult= await usersCollection.updateOne({email},{
-          $set: {
-            organization_name,
-            mission,
-            role: 'charity_role_request',
-            charity_request_time: new Date()
-          }
+          $set: updatedDoc
         });
-        res.send({message: 'Charity role request submitted', updateResult})
+        res.send({message: 'Role request submitted successfully.', updateResult})
       }catch(error){
         res.status(500).send({error: 'Failed to update user data'})
       }
     })
     // users get user by email 
-    app.get('/users', async(req, res)=>{
+    app.get('/user', async(req, res)=>{
       const email=req.query.email;
       console.log(email)
       const user_by_email=await usersCollection.findOne({email});
       res.send({user_by_email: user_by_email})
     });
+    // users get all users
+    app.get('/users/all', verifyFirebaseToken, async(req,res)=>{
+      const allUsers=await usersCollection.find().toArray();
+      res.send(allUsers);
+    })
     // Send a ping to confirm a successful connection
     // await client.db("admin").command({ ping: 1 });
     // console.log("Pinged your deployment. You successfully connected to MongoDB!");
