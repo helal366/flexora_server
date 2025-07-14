@@ -176,7 +176,13 @@ async function run() {
     });
     // Delete user
     app.delete('/users/:id', verifyFirebaseToken, async(req,res)=>{
-      const id=new ObjectId(req.params.id);
+      let id; 
+      try{
+        id=new ObjectId(req.params.id);
+        console.log('deleting user id', id)
+      }catch(error){
+        res.status(404).send({message: 'Invalid user ID format', error: error})
+      }
       try{
         // find the user first to find the uid
         const userToDelete= await usersCollection.findOne({_id:id});
@@ -206,6 +212,9 @@ async function run() {
 run().catch(console.dir);
 
 // connection
+app.get('/ping', (req, res) => {
+  res.send('Server is live');
+});
 const html = `<html>
       <head>
         <title>Profast</title>
