@@ -167,8 +167,9 @@ async function run() {
         res.status(403).send('Forbidden! Email mismatch from direct role change by admin.');
       }
       const updatedDoc = req.body;
+      console.log({updatedDoc})
       try {
-        const result = await usersCollection.updateOne({ email: candidateEmail }, { $set: { updatedDoc } })
+        const result = await usersCollection.updateOne({ email: candidateEmail }, { $set:  updatedDoc  })
         res.send('Role directly update by admin is successful', result)
       } catch (error) {
         res.status(500).send('Failed to directly update role by admin.')
@@ -205,8 +206,8 @@ async function run() {
       }
     })
     // Send a ping to confirm a successful connection
-    // await client.db("admin").command({ ping: 1 });
-    // console.log("Pinged your deployment. You successfully connected to MongoDB!");
+    await client.db("admin").command({ ping: 1 });
+    console.log("Pinged your deployment. You successfully connected to MongoDB!");
   } finally { }
 }
 run().catch(console.dir);
