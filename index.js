@@ -3,6 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');  // mongodb
 const admin = require("firebase-admin");
+const { getAuth } = require('firebase-admin/auth');
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const app = express();
 const port = process.env.PORT || 4000;
@@ -174,10 +175,28 @@ async function run() {
       }
     });
     // Delete user
-    app.delete('/user_delete/:id', verifyFirebaseToken, async(req,res)=>{
+    app.delete('/users/:id', verifyFirebaseToken, async(req,res)=>{
       const id=new ObjectId(req.params.id);
-      const result= await usersCollection.deleteOne({_id: id});
-      res.send(result)
+      try{
+        // find the user first to find the uid
+        const userToDelete= await usersCollection.findOne({_id:id});
+        if(!userToDelete){
+         return res.status(404).send({message: 'User not found.'})
+        }
+        // delete from firebase
+        const uid=userToDelete?.uid;
+        if(uid){
+          await getAuth().deleteUser(uid)
+        }else{
+          return res.status(404).send({message: 'User UID not found'})
+        }
+        // delete user from mongodb
+        const deleteFromMongodb= await usersCollection.deleteOne({_id: id});
+        res.send({message:'User successfully deleted from mongodb', deleteResult: deleteFromMongodb})
+
+      }catch(error){
+        res.status(500).send({message: 'Failed to delete user.', error: error})
+      }
     })
     // Send a ping to confirm a successful connection
     // await client.db("admin").command({ ping: 1 });
