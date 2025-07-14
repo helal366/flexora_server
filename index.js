@@ -49,8 +49,8 @@ async function run() {
     const usersCollection = db.collection('users') //collection
     const transectionCollection = db.collection('transections') //collection
     // const result1 = await usersCollection.updateOne(
-    //   { email: 'shifa@gmail.com' },
-    //   { $set: { role_request_status: 'Pending' } }
+    //   { email: 'mahfus@gmail.com' },
+    //   { $set: { mission: 'Ranna Ghor exists to serve the soul of Bengali cuisine — warm, homestyle meals made with heart, heritage, and hospitality.' } }
     // );
     // console.log('✅ Static update done:', result1.modifiedCount);
     // const result2 = await usersCollection.updateOne(
@@ -167,42 +167,73 @@ async function run() {
         res.status(403).send('Forbidden! Email mismatch from direct role change by admin.');
       }
       const updatedDoc = req.body;
-      console.log({updatedDoc})
+      // console.log({updatedDoc})
       try {
-        const result = await usersCollection.updateOne({ email: candidateEmail }, { $set:  updatedDoc  })
+        const result = await usersCollection.updateOne({ email: candidateEmail }, { $set: updatedDoc })
         res.send('Role directly update by admin is successful', result)
       } catch (error) {
         res.status(500).send('Failed to directly update role by admin.')
       }
     });
     // Delete user
-    app.delete('/users/:id', verifyFirebaseToken, async(req,res)=>{
-      let id; 
-      try{
-        id=new ObjectId(req.params.id);
+    app.delete('/users/:id', verifyFirebaseToken, async (req, res) => {
+      let id;
+      try {
+        id = new ObjectId(req.params.id);
         console.log('deleting user id', id)
-      }catch(error){
-        res.status(404).send({message: 'Invalid user ID format', error: error})
+      } catch (error) {
+        res.status(404).send({ message: 'Invalid user ID format', error: error })
       }
-      try{
+      try {
         // find the user first to find the uid
-        const userToDelete= await usersCollection.findOne({_id:id});
-        if(!userToDelete){
-         return res.status(404).send({message: 'User not found.'})
+        const userToDelete = await usersCollection.findOne({ _id: id });
+        if (!userToDelete) {
+          return res.status(404).send({ message: 'User not found.' })
         }
         // delete from firebase
-        const uid=userToDelete?.uid;
-        if(uid){
+        const uid = userToDelete?.uid;
+        if (uid) {
           await getAuth().deleteUser(uid)
-        }else{
-          return res.status(404).send({message: 'User UID not found'})
+        } else {
+          return res.status(404).send({ message: 'User UID not found' })
         }
         // delete user from mongodb
-        const deleteFromMongodb= await usersCollection.deleteOne({_id: id});
-        res.send({message:'User successfully deleted from mongodb', deleteResult: deleteFromMongodb})
+        const deleteFromMongodb = await usersCollection.deleteOne({ _id: id });
+        res.send({ message: 'User successfully deleted from mongodb', deleteResult: deleteFromMongodb })
 
-      }catch(error){
-        res.status(500).send({message: 'Failed to delete user.', error: error})
+      } catch (error) {
+        res.status(500).send({ message: 'Failed to delete user.', error: error })
+      }
+    })
+    // users get all role request 
+    app.get('/users/role_requests', verifyFirebaseToken, async (req, res) => {
+      try {
+        const roleRequests = await usersCollection.find({
+          role: {
+            $in: ['charity_role_request', 'restaurant_role_request']
+          }
+        }).toArray();
+        res.send(roleRequests)
+      } catch (error) {
+        res.status(500).send({ message: 'Failed to fetch role request', error: error })
+      }
+    });
+    // users role update to restaurant or charity or reject to user;
+    app.patch('/users/role_request_update/:candidateEmail/:adminEmail', verifyFirebaseToken, async (req, res) => {
+      const candidateEmail = req.params.candidateEmail;
+      const adminEmail = req.params.adminEmail;
+      if (req?.decoded?.email !== adminEmail) {
+       return res.status(403).send('Forbidden! Email mismatch from approved rejected route.')
+      }
+      const updatedDoc = req.body;
+      const result = await usersCollection.updateOne(
+        { email: candidateEmail }, 
+        { $set: updatedDoc }
+      );
+      if (result?.modifiedCount>0) {
+        res.send({message: 'Status and role updated successfully', result});
+      }else{
+        res.status(404).send({message: 'Status and role update failed!'})
       }
     })
     // Send a ping to confirm a successful connection
