@@ -183,6 +183,41 @@ async function run() {
         res.status(500).send({ error: 'Internal Server Error' });
       }
     });
+    // users patch restaurant profile update
+    app.patch('/users/update-restaurant-profile/:email', verifyFirebaseToken, async (req, res) => {
+      const emailParam = req.params.email;
+      const requesterEmail = req.decoded.email;
+
+      if (emailParam !== requesterEmail) {
+        return res.status(403).send({ error: 'Forbidden: Email mismatch' });
+      }
+
+      const updatedData = req.body;
+
+      try {
+        const filter = { email: emailParam };
+        const updateDoc = {
+          $set: {
+            contact_number: updatedData.contact_number,
+            organization_name: updatedData.organization_name,
+            organization_email: updatedData.organization_email,
+            organization_contact: updatedData.organization_contact,
+            organization_address: updatedData.organization_address,
+            organization_tagline: updatedData.organization_tagline,
+            mission: updatedData.mission,
+            organization_logo: updatedData.organization_logo,
+            photoURL: updatedData.photoURL,
+          }
+        };
+
+        const result = await usersCollection.updateOne(filter, updateDoc);
+
+        res.send(result);
+      } catch (error) {
+        console.error('Restaurant profile update failed:', error);
+        res.status(500).send({ error: 'Internal Server Error' });
+      }
+    });
 
     // users get user by email 
     app.get('/user', async (req, res) => {
