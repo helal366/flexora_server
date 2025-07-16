@@ -53,7 +53,7 @@ async function run() {
     //   { $set: {organization_tagline: 'Rescue Food. Restore Dignity. Relieve Hunger.'} }
     // );
     // console.log('✅ Static update done:', result1.modifiedCount);
-    
+
     // custom middle wire
     const verifyFirebaseToken = async (req, res, next) => {
       const authHeader = req.headers.authorization;
@@ -92,9 +92,11 @@ async function run() {
       }
     });
     // users/patch last login time update
-    app.patch('/users/last-login', async (req, res) => {
-      const email = req.body.email;
-      const last_login = req.body.last_login;
+    app.patch('/users/last-login', verifyFirebaseToken, async (req, res) => {
+      const { email, last_login } = req.body;
+      if (!email || !last_login) {
+        return res.status(400).send({ message: 'Email and last_login are required.' });
+      }
       try {
         const result = await usersCollection.updateOne({ email }, { $set: { last_login } });
         res.send({ message: 'Last login time updated', result })
@@ -178,7 +180,7 @@ async function run() {
         id = new ObjectId(req.params.id);
         console.log('deleting user id', id)
       } catch (error) {
-       return res.status(404).send({ message: 'Invalid user ID format', error: error })
+        return res.status(404).send({ message: 'Invalid user ID format', error: error })
       }
       try {
         // find the user first to find the uid
@@ -188,25 +190,25 @@ async function run() {
         }
         // delete from firebase
         const uid = userToDelete?.uid;
-        const transectionId=userToDelete?.transection_id
+        const transectionId = userToDelete?.transection_id
         if (uid) {
           await getAuth().deleteUser(uid)
         } else {
           return res.status(404).send({ message: 'User UID not found' })
         }
-         // delete associated transection
-        let deleteTransectionResult={deletedCount: 0}
-        if(transectionId){
-          deleteTransectionResult=await transectionCollection.deleteOne({transection_id: transectionId});
+        // delete associated transection
+        let deleteTransectionResult = { deletedCount: 0 }
+        if (transectionId) {
+          deleteTransectionResult = await transectionCollection.deleteOne({ transection_id: transectionId });
         }
         // delete user from mongodb
         const deleteFromMongodb = await usersCollection.deleteOne({ _id: id });
-        res.send({ 
+        res.send({
           message: 'User successfully deleted from mongodb firebase and with associated transection',
-          firebaseDeleted: !!uid, 
+          firebaseDeleted: !!uid,
           userDeleted: deleteFromMongodb,
           transectionDeleted: deleteTransectionResult
-         })
+        })
 
       } catch (error) {
         res.status(500).send({ message: 'Failed to delete user.', error: error })
@@ -230,17 +232,17 @@ async function run() {
       const candidateEmail = req.params.candidateEmail;
       const adminEmail = req.params.adminEmail;
       if (req?.decoded?.email !== adminEmail) {
-       return res.status(403).send('Forbidden! Email mismatch from approved rejected route.')
+        return res.status(403).send('Forbidden! Email mismatch from approved rejected route.')
       }
       const updatedDoc = req.body;
       const result = await usersCollection.updateOne(
-        { email: candidateEmail }, 
+        { email: candidateEmail },
         { $set: updatedDoc }
       );
-      if (result?.modifiedCount>0) {
-        res.send({message: 'Status and role updated successfully', result});
-      }else{
-        res.status(404).send({message: 'Status and role update failed!'})
+      if (result?.modifiedCount > 0) {
+        res.send({ message: 'Status and role updated successfully', result });
+      } else {
+        res.status(404).send({ message: 'Status and role update failed!' })
       }
     })
     // Send a ping to confirm a successful connection
