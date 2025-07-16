@@ -49,15 +49,11 @@ async function run() {
     const usersCollection = db.collection('users') //collection
     const transectionCollection = db.collection('transections') //collection
     // const result1 = await usersCollection.updateOne(
-    //   { email: 'mahfus@gmail.com' },
-    //   { $set: { mission: 'Ranna Ghor exists to serve the soul of Bengali cuisine — warm, homestyle meals made with heart, heritage, and hospitality.' } }
+    //   { email: 'nazrul@gmail.com' },
+    //   { $set: {organization_tagline: 'Rescue Food. Restore Dignity. Relieve Hunger.'} }
     // );
     // console.log('✅ Static update done:', result1.modifiedCount);
-    // const result2 = await usersCollection.updateOne(
-    //   { email: 'beauty@gmail.com' },
-    //   { $set: { role_request_status: 'Pending' } }
-    // );
-    // console.log('✅ Static update done:', result2.modifiedCount);
+    
     // custom middle wire
     const verifyFirebaseToken = async (req, res, next) => {
       const authHeader = req.headers.authorization;
@@ -182,7 +178,7 @@ async function run() {
         id = new ObjectId(req.params.id);
         console.log('deleting user id', id)
       } catch (error) {
-        res.status(404).send({ message: 'Invalid user ID format', error: error })
+       return res.status(404).send({ message: 'Invalid user ID format', error: error })
       }
       try {
         // find the user first to find the uid
@@ -192,14 +188,25 @@ async function run() {
         }
         // delete from firebase
         const uid = userToDelete?.uid;
+        const transectionId=userToDelete?.transection_id
         if (uid) {
           await getAuth().deleteUser(uid)
         } else {
           return res.status(404).send({ message: 'User UID not found' })
         }
+         // delete associated transection
+        let deleteTransectionResult={deletedCount: 0}
+        if(transectionId){
+          deleteTransectionResult=await transectionCollection.deleteOne({transection_id: transectionId});
+        }
         // delete user from mongodb
         const deleteFromMongodb = await usersCollection.deleteOne({ _id: id });
-        res.send({ message: 'User successfully deleted from mongodb', deleteResult: deleteFromMongodb })
+        res.send({ 
+          message: 'User successfully deleted from mongodb firebase and with associated transection',
+          firebaseDeleted: !!uid, 
+          userDeleted: deleteFromMongodb,
+          transectionDeleted: deleteTransectionResult
+         })
 
       } catch (error) {
         res.status(500).send({ message: 'Failed to delete user.', error: error })
