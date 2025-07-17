@@ -50,11 +50,11 @@ async function run() {
     const transectionCollection = db.collection('transections') //collection
     const donationsCollection = db.collection('donations') //collection
 
-    //     const result1 = await transectionCollection.updateOne(
-    //       { user_email: 'shifa@gmail.com' },
-    //       { $set: {status: 'Approved'} }
-    //     );
-    //     console.log('✅ Static update done:', result1.modifiedCount);
+    // const result1 = await usersCollection.updateOne(
+    //   { email: 'abdullah@gmail.com' },
+    //   { $set: {organization_location: 'Farmgate'} }
+    // );
+    // console.log('✅ Static update done:', result1.modifiedCount);
 
     // custom middle wire
     const verifyFirebaseToken = async (req, res, next) => {
@@ -376,7 +376,7 @@ async function run() {
     app.post('/donations', async (req, res) => {
       try {
         const donationData = req.body;
-
+        console.log(donationData)
         // Add status and posted_at timestamp
         donationData.status = 'Pending';
         donationData.posted_at = new Date(); // current date and time
@@ -393,6 +393,19 @@ async function run() {
           message: 'Failed to add donation',
           error: error.message,
         });
+      }
+    });
+
+    // get all donations 
+    app.get('/donations', verifyFirebaseToken, async (req, res) => {
+      try {
+        // You can also check user role here if needed, e.g. only admin allowed
+
+        const donations = await donationsCollection.find({}).toArray();
+        res.status(200).json(donations);
+      } catch (error) {
+        console.error('Error fetching donations:', error);
+        res.status(500).json({ message: 'Failed to fetch donations', error: error.message });
       }
     });
 
