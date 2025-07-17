@@ -50,11 +50,11 @@ async function run() {
     const transectionCollection = db.collection('transections') //collection
     const donationsCollection = db.collection('donations') //collection
 
-    // const result1 = await usersCollection.updateOne(
-    //   { email: 'abdullah@gmail.com' },
-    //   { $set: {status: 'Approved'} }
-    // );
-    // console.log('✅ Static update done:', result1.modifiedCount);
+    //     const result1 = await transectionCollection.updateOne(
+    //       { user_email: 'shifa@gmail.com' },
+    //       { $set: {status: 'Approved'} }
+    //     );
+    //     console.log('✅ Static update done:', result1.modifiedCount);
 
     // custom middle wire
     const verifyFirebaseToken = async (req, res, next) => {
@@ -365,6 +365,33 @@ async function run() {
         res.status(500).send({
           message: 'Status and role update failed!',
           error: err.message
+        });
+      }
+    });
+
+
+
+    // DONATIONS
+    // POST /donations - Add a new donation
+    app.post('/donations', async (req, res) => {
+      try {
+        const donationData = req.body;
+
+        // Add status and posted_at timestamp
+        donationData.status = 'Pending';
+        donationData.posted_at = new Date(); // current date and time
+
+        const result = await donationsCollection.insertOne(donationData);
+
+        res.status(201).send({
+          message: 'Donation added successfully',
+          insertedId: result.insertedId,
+        });
+      } catch (error) {
+        console.error('Error adding donation:', error);
+        res.status(500).send({
+          message: 'Failed to add donation',
+          error: error.message,
         });
       }
     });
