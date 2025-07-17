@@ -48,6 +48,7 @@ async function run() {
     const db = client.db('foodDB');  // database
     const usersCollection = db.collection('users') //collection
     const transectionCollection = db.collection('transections') //collection
+    const donationsCollection = db.collection('donations') //collection
 
     // const result1 = await usersCollection.updateOne(
     //   { email: 'abdullah@gmail.com' },
@@ -88,7 +89,7 @@ async function run() {
         const result = await usersCollection.insertOne(user);
         res.send(result);
       } catch (error) {
-        console.error('Error creating user', error);
+        // console.error('Error creating user', error);
         res.status(500).send({ message: 'Server error.' })
       }
     });
@@ -133,6 +134,7 @@ async function run() {
     // users patch role request
     app.patch(`/users/role_request/:email`, verifyFirebaseToken, async (req, res) => {
       const email = req.params.email;
+      // console.log('Received role request for:', email);
       const updatedDoc = req.body;
       const { status } = req.body;
       if (req.decoded.email !== email) {
@@ -143,7 +145,7 @@ async function run() {
           $set: updatedDoc
         });
         const updateTransectionStatus = await transectionCollection.updateOne({ email }, {
-          $set: status
+          $set: { status }
         })
         res.send({ message: 'Role request submitted successfully.', userUpdate: updateResult, transectionUpdate: updateTransectionStatus })
       } catch (error) {
@@ -257,7 +259,7 @@ async function run() {
       let id;
       try {
         id = new ObjectId(req.params.id);
-        console.log('deleting user id', id)
+        // console.log('deleting user id', id)
       } catch (error) {
         return res.status(404).send({ message: 'Invalid user ID format', error: error })
       }
@@ -301,35 +303,71 @@ async function run() {
             $in: ['charity_role_request', 'restaurant_role_request']
           }
         }).toArray();
-        res.send(roleRequests)
+        res.status(200).json({ success: true, data: roleRequests });
+
       } catch (error) {
         res.status(500).send({ message: 'Failed to fetch role request', error: error })
       }
     });
     // users role update to restaurant or charity for approved or reject to user;
     app.patch('/users/role_request_update/:candidateEmail/:adminEmail', verifyFirebaseToken, async (req, res) => {
-      const candidateEmail = req.params.candidateEmail;
-      const adminEmail = req.params.adminEmail;
+      const candidateEmail = decodeURIComponent(req?.params?.candidateEmail);
+      const adminEmail = decodeURIComponent(req?.params?.adminEmail);
+
+      // Verify token belongs to the admin
       if (req?.decoded?.email !== adminEmail) {
-        return res.status(403).send('Forbidden! Email mismatch from approved rejected route.')
+        return res.status(403).send('Forbidden! Email mismatch from approved rejected route.');
       }
+
       const updatedDoc = req.body;
       const { status } = req.body;
+
       try {
-        // user data update
-        const result = await usersCollection.updateOne(
+        // ✅ Optional: check if candidate user exists
+        const candidateUser = await usersCollection.findOne({ email: candidateEmail });
+        if (!candidateUser) {
+          return res.status(404).send({ message: 'User not found.' });
+        }
+
+        // ✅ Get transaction data
+        const candidateTransection = await transectionCollection.findOne({ user_email: candidateEmail });
+        const transectionId = candidateTransection?.transection_id;
+
+        // ✅ Update user document
+        const userUpdateResult = await usersCollection.updateOne(
           { email: candidateEmail },
           { $set: updatedDoc }
         );
-        // transection data update
-        const transectionStatusUpdate = await transectionCollection.updateOne(
-          { email: candidateEmail },
-          { $set: {status} });
-        res.send({ message: 'Status and role updated successfully', userUpdate: result, transectionUpdate: transectionStatusUpdate })
-      } catch {
-        res.status(500).send({ message: 'Status and role update failed!', error: err.message });
+
+        if (userUpdateResult.matchedCount === 0) {
+          return res.status(400).send({ message: 'User update failed: email not matched.' });
+        }
+
+        // ✅ Update transaction document, if found
+        if (transectionId) {
+          const transectionStatusUpdate = await transectionCollection.updateOne(
+            { user_email: candidateEmail },
+            { $set: { status } }
+          );
+
+          if (transectionStatusUpdate.matchedCount === 0) {
+            return res.status(400).send({ message: 'Transaction update failed: not found.' });
+          }
+        }
+
+        // ✅ Final success response
+        return res.send({
+          message: 'User status and role updated successfully',
+          userUpdate: userUpdateResult
+        });
+
+      } catch (err) {
+        res.status(500).send({
+          message: 'Status and role update failed!',
+          error: err.message
+        });
       }
-    })
+    });
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
