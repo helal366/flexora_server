@@ -48,9 +48,10 @@ async function run() {
     const db = client.db('foodDB');  // database
     const usersCollection = db.collection('users') //collection
     const transectionCollection = db.collection('transections') //collection
+
     // const result1 = await usersCollection.updateOne(
-    //   { email: 'nazrul@gmail.com' },
-    //   { $set: {organization_tagline: 'Rescue Food. Restore Dignity. Relieve Hunger.'} }
+    //   { email: 'abdullah@gmail.com' },
+    //   { $set: {status: 'Approved'} }
     // );
     // console.log('✅ Static update done:', result1.modifiedCount);
 
@@ -133,6 +134,7 @@ async function run() {
     app.patch(`/users/role_request/:email`, verifyFirebaseToken, async (req, res) => {
       const email = req.params.email;
       const updatedDoc = req.body;
+      const { status } = req.body;
       if (req.decoded.email !== email) {
         return res.status(403).send({ message: 'Forbidden! Email mismatch from role request.' })
       }
@@ -140,7 +142,10 @@ async function run() {
         const updateResult = await usersCollection.updateOne({ email }, {
           $set: updatedDoc
         });
-        res.send({ message: 'Role request submitted successfully.', updateResult })
+        const updateTransectionStatus = await transectionCollection.updateOne({ email }, {
+          $set: status
+        })
+        res.send({ message: 'Role request submitted successfully.', userUpdate: updateResult, transectionUpdate: updateTransectionStatus })
       } catch (error) {
         res.status(500).send({ error: 'Failed to update user data' })
       }
@@ -301,7 +306,7 @@ async function run() {
         res.status(500).send({ message: 'Failed to fetch role request', error: error })
       }
     });
-    // users role update to restaurant or charity or reject to user;
+    // users role update to restaurant or charity for approved or reject to user;
     app.patch('/users/role_request_update/:candidateEmail/:adminEmail', verifyFirebaseToken, async (req, res) => {
       const candidateEmail = req.params.candidateEmail;
       const adminEmail = req.params.adminEmail;
@@ -309,16 +314,23 @@ async function run() {
         return res.status(403).send('Forbidden! Email mismatch from approved rejected route.')
       }
       const updatedDoc = req.body;
-      const result = await usersCollection.updateOne(
-        { email: candidateEmail },
-        { $set: updatedDoc }
-      );
-      if (result?.modifiedCount > 0) {
-        res.send({ message: 'Status and role updated successfully', result });
-      } else {
-        res.status(404).send({ message: 'Status and role update failed!' })
+      const { status } = req.body;
+      try {
+        // user data update
+        const result = await usersCollection.updateOne(
+          { email: candidateEmail },
+          { $set: updatedDoc }
+        );
+        // transection data update
+        const transectionStatusUpdate = await transectionCollection.updateOne(
+          { email: candidateEmail },
+          { $set: {status} });
+        res.send({ message: 'Status and role updated successfully', userUpdate: result, transectionUpdate: transectionStatusUpdate })
+      } catch {
+        res.status(500).send({ message: 'Status and role update failed!', error: err.message });
       }
     })
+
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
     console.log("Pinged your deployment. You successfully connected to MongoDB!");
