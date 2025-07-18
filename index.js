@@ -227,7 +227,7 @@ async function run() {
     });
 
     // users get user by email 
-    app.get('/user', async (req, res) => {
+    app.get('/user', verifyFirebaseToken, async (req, res) => {
       const email = req.query.email;
       console.log(email)
       const user_by_email = await usersCollection.findOne({ email });
@@ -371,7 +371,7 @@ async function run() {
 
     // DONATIONS
     // POST /donations - Add a new donation
-    app.post('/donations', async (req, res) => {
+    app.post('/donations', verifyFirebaseToken, async (req, res) => {
       try {
         const donationData = req.body;
         console.log(donationData)
@@ -415,7 +415,7 @@ async function run() {
       if (!status) {
         return res.status(400).json({ message: 'Status is required.' });
       }
-      const updatedDoc={
+      const updatedDoc = {
         status,
         donation_status: "Available"
       }
@@ -434,6 +434,30 @@ async function run() {
       } catch (error) {
         console.error('Error updating donation status:', error);
         res.status(500).json({ message: 'Internal Server Error' });
+      }
+    });
+    // Get a single donation by ID
+    app.get('/donations/:id', async (req, res) => {
+      const { id } = req.params;
+      const email=req?.query?.email
+      if (req?.decoded?.email !== email) {
+        return res.status(403).send({ message: 'Forbidden! Email mismatch from role request.' })
+      }
+      if (!ObjectId.isValid(id)) {
+        return res.status(400).send({ error: 'Invalid donation ID format.' });
+      }
+
+      try {
+        const donation = await donationsCollection.findOne({ _id: new ObjectId(id) });
+
+        if (!donation) {
+          return res.status(404).send({ error: 'Donation not found.' });
+        }
+
+        res.send(donation);
+      } catch (error) {
+        console.error('Error fetching donation:', error);
+        res.status(500).send({ error: 'Failed to fetch donation.' });
       }
     });
 
