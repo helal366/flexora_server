@@ -49,6 +49,7 @@ async function run() {
     const usersCollection = db.collection('users') //collection
     const transectionCollection = db.collection('transections') //collection
     const donationsCollection = db.collection('donations') //collection
+    const reviewsCollection = db.collection('reviews') //collection
 
     // const result1 = await donationsCollection.updateOne(
     //   { restaurant_email: 'support@savornest.com' },
@@ -68,6 +69,7 @@ async function run() {
       }
       try {
         const decoded = await admin.auth().verifyIdToken(token);
+        // console.log({decoded})
         req.decoded = decoded;
       } catch (error) {
         return res.status(403).send({ message: 'Forbidden access from try catch token verify', error })
@@ -410,14 +412,15 @@ async function run() {
     // PATCH: Update donation status by ID
     app.patch('/donations/:id', verifyFirebaseToken, async (req, res) => {
       const { id } = req.params;
-      const { status } = req.body;
+      const { status,donation_status, request } = req.body;
 
       if (!status) {
         return res.status(400).json({ message: 'Status is required.' });
       }
       const updatedDoc = {
         status,
-        donation_status: "Available"
+        donation_status,
+        request
       }
 
       try {
@@ -426,7 +429,7 @@ async function run() {
           { $set: updatedDoc }
         );
 
-        if (result.modifiedCount === 0) {
+        if (result?.modifiedCount === 0) {
           return res.status(404).json({ message: 'Donation not found or already has this status.' });
         }
 
@@ -437,9 +440,10 @@ async function run() {
       }
     });
     // Get a single donation by ID
-    app.get('/donations/:id', async (req, res) => {
+    app.get('/donations/:id', verifyFirebaseToken, async (req, res) => {
       const { id } = req.params;
       const email=req?.query?.email
+      const decodedEmail=req?.decoded?.email;
       if (req?.decoded?.email !== email) {
         return res.status(403).send({ message: 'Forbidden! Email mismatch from role request.' })
       }
