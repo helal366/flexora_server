@@ -412,7 +412,7 @@ async function run() {
     // PATCH: Update donation status by ID
     app.patch('/donations/:id', verifyFirebaseToken, async (req, res) => {
       const { id } = req.params;
-      const { status,donation_status, request } = req.body;
+      const { status, donation_status, request } = req.body;
 
       if (!status) {
         return res.status(400).json({ message: 'Status is required.' });
@@ -442,8 +442,8 @@ async function run() {
     // Get a single donation by ID
     app.get('/donations/:id', verifyFirebaseToken, async (req, res) => {
       const { id } = req.params;
-      const email=req?.query?.email
-      const decodedEmail=req?.decoded?.email;
+      const email = req?.query?.email
+      const decodedEmail = req?.decoded?.email;
       if (req?.decoded?.email !== email) {
         return res.status(403).send({ message: 'Forbidden! Email mismatch from role request.' })
       }
@@ -462,6 +462,20 @@ async function run() {
       } catch (error) {
         console.error('Error fetching donation:', error);
         res.status(500).send({ error: 'Failed to fetch donation.' });
+      }
+    });
+
+    // REVIEWS
+    // reviews post route
+    app.post('/reviews', verifyFirebaseToken, async (req, res) => {
+      try {
+        const review = req.body;
+        review.created_at = new Date(); // Optional timestamp
+        const result = await reviewsCollection.insertOne(review);
+        res.status(201).send(result);
+      } catch (error) {
+        console.error('Error inserting review:', error);
+        res.status(500).send({ message: 'Internal Server Error' });
       }
     });
 
