@@ -369,8 +369,6 @@ async function run() {
       }
     });
 
-
-
     // DONATIONS
     // POST /donations - Add a new donation
     app.post('/donations', async (req, res) => {
@@ -406,6 +404,32 @@ async function run() {
       } catch (error) {
         console.error('Error fetching donations:', error);
         res.status(500).json({ message: 'Failed to fetch donations', error: error.message });
+      }
+    });
+
+    // PATCH: Update donation status by ID
+    app.patch('/donations/:id', verifyFirebaseToken, async (req, res) => {
+      const { id } = req.params;
+      const { status } = req.body;
+
+      if (!status) {
+        return res.status(400).json({ message: 'Status is required.' });
+      }
+
+      try {
+        const result = await donationsCollection.updateOne(
+          { _id: new ObjectId(id) },
+          { $set: { status } }
+        );
+
+        if (result.modifiedCount === 0) {
+          return res.status(404).json({ message: 'Donation not found or already has this status.' });
+        }
+
+        res.status(200).json({ message: 'Donation status updated successfully.' });
+      } catch (error) {
+        console.error('Error updating donation status:', error);
+        res.status(500).json({ message: 'Internal Server Error' });
       }
     });
 
