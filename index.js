@@ -50,9 +50,9 @@ async function run() {
     const transectionCollection = db.collection('transections') //collection
     const donationsCollection = db.collection('donations') //collection
 
-    // const result1 = await usersCollection.updateOne(
-    //   { email: 'abdullah@gmail.com' },
-    //   { $set: {organization_location: 'Farmgate'} }
+    // const result1 = await donationsCollection.updateOne(
+    //   { restaurant_email: 'support@savornest.com' },
+    //   { $set: {donation_status: 'Available'} }
     // );
     // console.log('✅ Static update done:', result1.modifiedCount);
 
@@ -415,11 +415,15 @@ async function run() {
       if (!status) {
         return res.status(400).json({ message: 'Status is required.' });
       }
+      const updatedDoc={
+        status,
+        donation_status: "Available"
+      }
 
       try {
         const result = await donationsCollection.updateOne(
           { _id: new ObjectId(id) },
-          { $set: { status } }
+          { $set: updatedDoc }
         );
 
         if (result.modifiedCount === 0) {
