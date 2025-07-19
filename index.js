@@ -52,9 +52,9 @@ async function run() {
     const requestsCollection = db.collection('requests') //collection
     const reviewsCollection = db.collection('reviews') //collection
 
-    // const result1 = await donationsCollection.updateOne(
-    //   { restaurant_email: 'support@savornest.com' },
-    //   { $set: {donation_status: 'Available'} }
+    // const result1 = await requestsCollection.updateMany(
+    //   {  },
+    //   { $set: {food_type: 'Cooked Rice Dish'} }
     // );
     // console.log('✅ Static update done:', result1.modifiedCount);
     // const result1 = await donationsCollection.updateOne(
@@ -514,32 +514,129 @@ async function run() {
         donation_id,
         charity_representative_email: charity_email,
       });
-      
-      // GET /requests/restaurant - Get all requests for a restaurant's donations
-      app.get('/requests/restaurant', verifyFirebaseToken, async (req, res) => {
-        try {
-          const userEmail = req.decoded?.email;
-          if (!userEmail) {
-            return res.status(401).json({ message: 'Unauthorized: No email found in token.' });
-          }
-
-          // Fetch all requests where the restaurant_representative_email matches
-          const requests = await requestsCollection
-            .find({ restaurant_representative_email: userEmail })
-            .sort({ created_at: -1 }) // optional: latest first
-            .toArray();
-
-          res.status(200).json(requests);
-        } catch (error) {
-          console.error('Error fetching restaurant requests:', error);
-          res.status(500).json({ message: 'Internal server error' });
-        }
-      });
-
-
       res.status(200).json({ alreadyRequested: !!exists });
+
+      // check is already locked
+      const donation = await donationsCollection.findOne({ _id: new ObjectId(donation_id) });
+      if (donation?.is_locked) {
+        return res.status(400).json({ message: 'This donation has already been accepted by another charity.' });
+      }
+
     });
 
+    // GET /requests/restaurant - Get all requests for a restaurant's donations
+    app.get('/requests/restaurant', verifyFirebaseToken, async (req, res) => {
+      try {
+        const userEmail = req.decoded?.email;
+        if (!userEmail) {
+          return res.status(401).json({ message: 'Unauthorized: No email found in token.' });
+        }
+
+        // Fetch all requests where the restaurant_representative_email matches
+        const requests = await requestsCollection
+          .find({ restaurant_representative_email: userEmail })
+          .sort({ created_at: -1 }) // optional: latest first
+          .toArray();
+
+        res.status(200).json(requests);
+      } catch (error) {
+        console.error('Error fetching restaurant requests:', error);
+        res.status(500).json({ message: 'Internal server error' });
+      }
+    });
+
+    //requests patch for status change to accepted or rejected
+    app.patch('/requests/status/:requestId', async (req, res) => {
+      const { requestId } = req.params;
+      const { status, donation_id } = req.body; // Ensure donation_id is passed from frontend
+
+      try {
+        // Update the request status
+        const result = await requestsCollection.updateOne(
+          { _id: new ObjectId(requestId) },
+          { $set: { request_status: status } }
+        );
+
+        if (result.matchedCount === 0) {
+          return res.status(404).json({ message: 'Request not found.' });
+        }
+
+        // If status is 'Accepted', also lock the donation
+        if (status === 'Accepted' && donation_id) {
+          await donationsCollection.updateOne(
+            { _id: new ObjectId(donation_id) },
+            { $set: { is_locked: true } }
+          );
+        }
+
+        res.status(200).json({ message: 'Request status updated successfully.' });
+      } catch (error) {
+        console.error('Error updating request status:', error);
+        res.status(500).json({ message: 'Internal server error.' });
+      }
+    });
+
+
+    // request patch for one accept, others will be rejected
+    app.patch('/requests/reject-others/:donationId', async (req, res) => {
+      const { donationId } = req.params;
+      const { except } = req.body;
+
+      try {
+        const result = await requestsCollection.updateMany(
+          {
+            donation_id: donationId,
+            _id: { $ne: new ObjectId(except) },
+            request_status: 'Pending',
+          },
+          { $set: { request_status: 'Rejected' } }
+        );
+
+        res.status(200).json({
+          message: 'Other requests rejected.',
+          modifiedCount: result.modifiedCount,
+        });
+      } catch (error) {
+        console.error('Error rejecting other requests:', error);
+        res.status(500).json({ message: 'Internal server error.' });
+      }
+    });
+
+    // GET /requests/charity - Get all requests made by a charity (based on their email)
+    app.get('/requests/charity', verifyFirebaseToken, async (req, res) => {
+      const charityEmail = req.query.email;
+
+      if (!charityEmail) {
+        return res.status(400).json({ message: 'Missing charity email in query.' });
+      }
+
+      try {
+        const requests = await requestsCollection
+          .find({ charity_representative_email: charityEmail })
+          .sort({ created_at: -1 }) // Optional: latest first
+          .toArray();
+
+        res.status(200).json(requests);
+      } catch (error) {
+        console.error(' Error fetching charity requests:', error);
+        res.status(500).json({ message: 'Internal server error.' });
+      }
+    });
+
+    // DELETE /requests/:id
+    app.delete('/requests/:id', verifyFirebaseToken, async (req, res) => {
+      const { id } = req.params;
+      try {
+        const result = await requestsCollection.deleteOne({ _id: new ObjectId(id) });
+        if (result.deletedCount === 0) {
+          return res.status(404).json({ message: 'Request not found.' });
+        }
+        res.status(200).json({ message: 'Request deleted successfully.' });
+      } catch (error) {
+        console.error('Error deleting request:', error);
+        res.status(500).json({ message: 'Internal server error' });
+      }
+    });
 
     // REVIEWS
     // reviews post route
