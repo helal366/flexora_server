@@ -667,6 +667,29 @@ async function run() {
       }
     });
 
+    // get /requests 
+    app.get('/requests', verifyFirebaseToken, async (req, res) => {
+      try {
+        const { charity_email, request_status } = req.query;
+
+        // Security check: ensure the requesting user matches the charity_email
+        if (req?.decoded?.email !== charity_email) {
+          return res.status(403).json({ message: 'Forbidden: Email mismatch.' });
+        }
+
+        const query = {};
+        if (charity_email) query.charity_representative_email = charity_email;
+        if (request_status) query.request_status = request_status;
+
+        const requests = await requestsCollection.find(query).toArray();
+        res.status(200).json(requests);
+      } catch (error) {
+        console.error('Error fetching charity requests:', error);
+        res.status(500).json({ message: 'Failed to fetch requests.' });
+      }
+    });
+
+
     // DELETE /requests/:id
     app.delete('/requests/:id', verifyFirebaseToken, async (req, res) => {
       const { id } = req.params;
