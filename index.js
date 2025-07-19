@@ -49,11 +49,19 @@ async function run() {
     const usersCollection = db.collection('users') //collection
     const transectionCollection = db.collection('transections') //collection
     const donationsCollection = db.collection('donations') //collection
+    const requestsCollection = db.collection('requests') //collection
     const reviewsCollection = db.collection('reviews') //collection
 
     // const result1 = await donationsCollection.updateOne(
     //   { restaurant_email: 'support@savornest.com' },
     //   { $set: {donation_status: 'Available'} }
+    // );
+    // console.log('✅ Static update done:', result1.modifiedCount);
+    // const result1 = await donationsCollection.updateOne(
+    //   { restaurant_email: 'support@savornest.com' },
+    //   {
+    //     $unset: { request_status: '' }
+    //   }
     // );
     // console.log('✅ Static update done:', result1.modifiedCount);
 
@@ -412,25 +420,29 @@ async function run() {
     // PATCH: Update donation status by ID
     app.patch('/donations/:id', verifyFirebaseToken, async (req, res) => {
       const { id } = req.params;
-      const { status, donation_status, request } = req.body;
+      if (!ObjectId.isValid(id)) {
+        return res.status(400).json({ message: 'Invalid donation ID.' });
+      }
+      const _id = new ObjectId(id);
 
-      if (!status) {
-        return res.status(400).json({ message: 'Status is required.' });
-      }
-      const updatedDoc = {
-        status,
-        donation_status,
-        request
-      }
+      const { status, donation_status, request_status } = req.body;
+      const updatedDoc = {};
+      if (status) updatedDoc.status = status;
+      if (donation_status) updatedDoc.donation_status = donation_status;
+      if (request_status) updatedDoc.request_status = request_status;
 
       try {
         const result = await donationsCollection.updateOne(
-          { _id: new ObjectId(id) },
+          { _id },
           { $set: updatedDoc }
         );
 
-        if (result?.modifiedCount === 0) {
-          return res.status(404).json({ message: 'Donation not found or already has this status.' });
+        if (result.matchedCount === 0) {
+          return res.status(200).json({ message: 'Donation not found.' });
+        }
+
+        if (result.modifiedCount === 0) {
+          return res.status(200).json({ message: 'Donation already has the provided status.' });
         }
 
         res.status(200).json({ message: 'Donation status updated successfully.' });
@@ -439,6 +451,8 @@ async function run() {
         res.status(500).json({ message: 'Internal Server Error' });
       }
     });
+
+
     // Get a single donation by ID
     app.get('/donations/:id', verifyFirebaseToken, async (req, res) => {
       const { id } = req.params;
@@ -465,9 +479,71 @@ async function run() {
       }
     });
 
+    // REQUEST ROUTES
+    // request post 
+    app.post('/donation-requests', verifyFirebaseToken, async (req, res) => {
+      const requestData = req.body;
+      const { donation_id, charity_email } = requestData;
+
+
+      try {
+        // Check for existing request
+        const existingRequest = await requestsCollection.findOne({ donation_id, charity_email });
+
+        if (existingRequest) {
+          return res.status(400).json({ message: 'You have already requested this donation.' });
+        }
+        // post requestData
+        const result = await requestsCollection.insertOne({
+          ...requestData,
+          created_at: new Date()
+        });
+
+        res.status(201).json({ message: 'Request submitted successfully', insertedId: result.insertedId });
+      } catch (error) {
+        console.error('Error submitting donation request:', error);
+        res.status(500).json({ error: 'Internal server error' });
+      }
+    });
+
+    // get data to check the double submission
+    // Check if charity already requested this donation
+    app.get('/requests/check', verifyFirebaseToken, async (req, res) => {
+      const { donation_id, charity_email } = req.query;
+      const exists = await requestsCollection.findOne({
+        donation_id,
+        charity_representative_email: charity_email,
+      });
+      
+      // GET /requests/restaurant - Get all requests for a restaurant's donations
+      app.get('/requests/restaurant', verifyFirebaseToken, async (req, res) => {
+        try {
+          const userEmail = req.decoded?.email;
+          if (!userEmail) {
+            return res.status(401).json({ message: 'Unauthorized: No email found in token.' });
+          }
+
+          // Fetch all requests where the restaurant_representative_email matches
+          const requests = await requestsCollection
+            .find({ restaurant_representative_email: userEmail })
+            .sort({ created_at: -1 }) // optional: latest first
+            .toArray();
+
+          res.status(200).json(requests);
+        } catch (error) {
+          console.error('Error fetching restaurant requests:', error);
+          res.status(500).json({ message: 'Internal server error' });
+        }
+      });
+
+
+      res.status(200).json({ alreadyRequested: !!exists });
+    });
+
+
     // REVIEWS
     // reviews post route
-    app.post('/reviews', verifyFirebaseToken, async (req, res) => {
+    app.post('/donation-reviews', verifyFirebaseToken, async (req, res) => {
       try {
         const review = req.body;
         review.created_at = new Date(); // Optional timestamp
