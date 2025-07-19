@@ -53,8 +53,8 @@ async function run() {
     const reviewsCollection = db.collection('reviews') //collection
 
     // const result1 = await requestsCollection.updateMany(
-    //   {  },
-    //   { $set: {food_type: 'Cooked Rice Dish'} }
+    //   { donation_id: '687b7290d979f0f8da0d90f0' },
+    //   { $set: {quantity: 5, unit: 'meal'} }
     // );
     // console.log('✅ Static update done:', result1.modifiedCount);
     // const result1 = await donationsCollection.updateOne(
@@ -406,10 +406,17 @@ async function run() {
 
     // get all donations 
     app.get('/donations', verifyFirebaseToken, async (req, res) => {
+      const { restaurant_email } = req.query;
+      const query = {};
+
+      if (restaurant_email) {
+        query.restaurant_representative_email = restaurant_email;
+      }
+
       try {
         // You can also check user role here if needed, e.g. only admin allowed
 
-        const donations = await donationsCollection.find({}).toArray();
+        const donations = await donationsCollection.find(query).toArray();
         res.status(200).json(donations);
       } catch (error) {
         console.error('Error fetching donations:', error);
@@ -420,16 +427,35 @@ async function run() {
     // PATCH: Update donation status by ID
     app.patch('/donations/:id', verifyFirebaseToken, async (req, res) => {
       const { id } = req.params;
+
       if (!ObjectId.isValid(id)) {
         return res.status(400).json({ message: 'Invalid donation ID.' });
       }
-      const _id = new ObjectId(id);
 
-      const { status, donation_status, request_status } = req.body;
+      const _id = new ObjectId(id);
+      const updateFields = req.body;
+
+      // Optional: whitelist only allowed fields to avoid unwanted updates
+      const allowedFields = [
+        'donation_title',
+        'food_type',
+        'quantity',
+        'unit',
+        'pickup_time_window',
+        'location',
+        'image',
+        'status',
+        'donation_status',
+        'request_status',
+        'updated_at'
+      ];
+
       const updatedDoc = {};
-      if (status) updatedDoc.status = status;
-      if (donation_status) updatedDoc.donation_status = donation_status;
-      if (request_status) updatedDoc.request_status = request_status;
+      for (const key of allowedFields) {
+        if (updateFields.hasOwnProperty(key)) {
+          updatedDoc[key] = updateFields[key];
+        }
+      }
 
       try {
         const result = await donationsCollection.updateOne(
@@ -438,20 +464,19 @@ async function run() {
         );
 
         if (result.matchedCount === 0) {
-          return res.status(200).json({ message: 'Donation not found.' });
+          return res.status(404).json({ message: 'Donation not found.' });
         }
 
         if (result.modifiedCount === 0) {
-          return res.status(200).json({ message: 'Donation already has the provided status.' });
+          return res.status(200).json({ message: 'No changes detected.' });
         }
 
-        res.status(200).json({ message: 'Donation status updated successfully.' });
+        res.status(200).json({ message: 'Donation updated successfully.' });
       } catch (error) {
-        console.error('Error updating donation status:', error);
+        console.error('Error updating donation:', error);
         res.status(500).json({ message: 'Internal Server Error' });
       }
     });
-
 
     // Get a single donation by ID
     app.get('/donations/:id', verifyFirebaseToken, async (req, res) => {
@@ -478,6 +503,25 @@ async function run() {
         res.status(500).send({ error: 'Failed to fetch donation.' });
       }
     });
+
+    // donations delete single donation from MyDonation component
+    app.delete('/donations/:id', verifyFirebaseToken, async (req, res) => {
+      const id = req.params.id;
+
+      try {
+        const result = await donationsCollection.deleteOne({ _id: new ObjectId(id) });
+
+        if (result.deletedCount === 1) {
+          res.status(200).send({ message: 'Donation deleted successfully.' });
+        } else {
+          res.status(404).send({ message: 'Donation not found.' });
+        }
+      } catch (error) {
+        console.error('Error deleting donation:', error);
+        res.status(500).send({ message: 'Internal Server Error' });
+      }
+    });
+
 
     // REQUEST ROUTES
     // request post 
