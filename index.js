@@ -52,9 +52,9 @@ async function run() {
     const requestsCollection = db.collection('requests') //collection
     const reviewsCollection = db.collection('reviews') //collection
 
-    // const result1 = await requestsCollection.updateMany(
-    //   { donation_id: '687b7290d979f0f8da0d90f0' },
-    //   { $set: {quantity: 5, unit: 'meal'} }
+    // const result1 = await reviewsCollection.updateMany(
+    //   { restaurant_representative_name: 'Abdullah' },
+    //   { $set: {restaurant_representative_email: 'abdullah@gmail.com'} }
     // );
     // console.log('✅ Static update done:', result1.modifiedCount);
     // const result1 = await donationsCollection.updateOne(
@@ -590,7 +590,7 @@ async function run() {
     });
 
     //requests patch for status change to accepted or rejected
-    app.patch('/requests/status/:requestId', async (req, res) => {
+    app.patch('/requests/status/:requestId', verifyFirebaseToken, async (req, res) => {
       const { requestId } = req.params;
       const { status, donation_id } = req.body; // Ensure donation_id is passed from frontend
 
@@ -620,9 +620,8 @@ async function run() {
       }
     });
 
-
     // request patch for one accept, others will be rejected
-    app.patch('/requests/reject-others/:donationId', async (req, res) => {
+    app.patch('/requests/reject-others/:donationId', verifyFirebaseToken, async (req, res) => {
       const { donationId } = req.params;
       const { except } = req.body;
 
@@ -670,18 +669,20 @@ async function run() {
     // get /requests 
     app.get('/requests', verifyFirebaseToken, async (req, res) => {
       try {
-        const { charity_email, request_status } = req.query;
+        const { charity_representative_email, request_status, picking_status } = req.query;
 
         // Security check: ensure the requesting user matches the charity_email
-        if (req?.decoded?.email !== charity_email) {
+        if (req?.decoded?.email !== charity_representative_email) {
           return res.status(403).json({ message: 'Forbidden: Email mismatch.' });
         }
 
         const query = {};
-        if (charity_email) query.charity_representative_email = charity_email;
+        if (charity_representative_email) query.charity_representative_email = charity_representative_email;
         if (request_status) query.request_status = request_status;
+        if (picking_status) query.picking_status = picking_status;
 
         const requests = await requestsCollection.find(query).toArray();
+        console.log({ requests })
         res.status(200).json(requests);
       } catch (error) {
         console.error('Error fetching charity requests:', error);
@@ -758,7 +759,7 @@ async function run() {
 
     // REVIEWS
     // reviews post route
-    app.post('/donation-reviews', verifyFirebaseToken, async (req, res) => {
+    app.post('/reviews', verifyFirebaseToken, async (req, res) => {
       try {
         const review = req.body;
         review.created_at = new Date(); // Optional timestamp
@@ -767,6 +768,86 @@ async function run() {
       } catch (error) {
         console.error('Error inserting review:', error);
         res.status(500).send({ message: 'Internal Server Error' });
+      }
+    });
+
+    // GET / reviews by user 
+    app.get('/reviews',verifyFirebaseToken, async (req, res) => {
+      try {
+        const { reviewer_email } = req.query;
+
+        if (!reviewer_email) {
+          return res.status(400).json({ error: 'Reviewer email is required.' });
+        }
+
+        const reviews = await reviewsCollection.aggregate([
+          {
+            $match: { reviewer_email },
+          },
+          {
+            $addFields: {
+              donationObjectId: { $toObjectId: '$donation_id' }
+            }
+          },
+          {
+            $lookup: {
+              from: 'donations',
+              localField: 'donationObjectId',
+              foreignField: '_id',
+              as: 'donationInfo',
+            },
+          },
+          {
+            $unwind: {
+              path: '$donationInfo',
+              preserveNullAndEmptyArrays: true,
+            },
+          },
+          {
+            $project: {
+              _id: 1,
+              donation_id: 1,
+              reviewer_name: 1,
+              reviewer_email: 1,
+              description: 1,
+              rating: 1,
+              created_at: 1,
+              donation_title: '$donationInfo.title',
+              restaurant_name: '$donationInfo.restaurant_name',
+              restaurant_representative_name: '$donationInfo.restaurant_representative_name',
+              donation_image: '$donationInfo.image',
+            },
+          },
+        ]).toArray();
+
+        res.status(200).json(reviews);
+      } catch (error) {
+        console.error('Error fetching enriched reviews:', error);
+        res.status(500).json({ message: 'Failed to fetch reviews' });
+      }
+    });
+
+    // DELETE/ review delete
+    app.delete('/reviews/:reviewId', verifyFirebaseToken, async (req, res) => {
+      const { reviewId } = req.params;
+      const { email } = req?.query;
+      const decodedEmail = req?.decoded?.email;
+
+      if (!ObjectId.isValid(reviewId)) {
+        return res.status(400).json({ error: 'Invalid review ID format.' });
+      }
+      try {
+        if (decodedEmail !== email) {
+          return res.status(403).send('Forbidden access from delete review')
+        } 
+        const result = await reviewsCollection.deleteOne({ _id: new ObjectId(reviewId) });
+        if (result.deletedCount === 0) {
+          return res.status(404).json({ message: 'Review not found or already deleted.' });
+        }
+        res.status(200).json({ message: 'Review deleted successfully.' });
+      } catch (error) {
+        console.error('Error deleting review:', error);
+        res.status(500).json({ message: 'Failed to delete review.' });
       }
     });
 
