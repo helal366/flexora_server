@@ -705,6 +705,57 @@ async function run() {
       }
     });
 
+    // PATCH /requests / confirm-pickup/:requestId
+    app.patch('/requests/confirm-pickup/:requestId', verifyFirebaseToken, async (req, res) => {
+      const { requestId } = req.params;
+
+      if (!ObjectId.isValid(requestId)) {
+        return res.status(400).json({ message: 'Invalid request ID' });
+      }
+
+      const _id = new ObjectId(requestId);
+
+      try {
+        // 1. Update the picking_status in the requests collection
+        const requestUpdateResult = await requestsCollection.updateOne(
+          { _id },
+          { $set: { picking_status: 'Picked Up', picked_up_at: new Date() } }
+        );
+
+        // 2. Get the donation_id from the request
+        const request = await requestsCollection.findOne({ _id });
+        if (!request || !request.donation_id) {
+          return res.status(404).json({ message: 'Donation not found in request' });
+        }
+
+        // 3. Update the donation_status in the donations collection
+        const donationUpdateResult = await donationsCollection.updateOne(
+          { _id: new ObjectId(request.donation_id) },
+          {
+            $set: {
+              donation_status: 'Picked Up',
+              picked_up_by: {
+                charity_name: request.charity_name,
+                charity_email: request.charity_email,
+                charity_representative_name: request.charity_representative_name,
+                charity_representative_email: request.charity_representative_email
+              },
+              updated_at: new Date()
+            }
+          }
+        );
+
+        res.status(200).json({
+          message: 'Pickup confirmed and donation status updated.',
+          requestModified: requestUpdateResult.modifiedCount,
+          donationModified: donationUpdateResult.modifiedCount
+        });
+      } catch (error) {
+        console.error('Error confirming pickup:', error);
+        res.status(500).json({ message: 'Internal Server Error' });
+      }
+    });
+
     // REVIEWS
     // reviews post route
     app.post('/donation-reviews', verifyFirebaseToken, async (req, res) => {
