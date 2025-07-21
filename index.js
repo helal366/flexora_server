@@ -52,18 +52,19 @@ async function run() {
     const requestsCollection = db.collection('requests') //collection
     const reviewsCollection = db.collection('reviews') //collection
 
-    // const result1 = await reviewsCollection.updateMany(
-    //   { restaurant_representative_name: 'Abdullah' },
-    //   { $set: {restaurant_representative_email: 'abdullah@gmail.com'} }
+    // const result1 = await transectionCollection.updateMany(
+    //   { user_email: 'jafna@gamil.com' },
+    //   { $set: {organization_name: "HopeBridge Foundation", organization_email: "support@hopebridge.com", organization_contact: "+8801911999777", organization_logo: 'https://i.postimg.cc/2595v9Kd/hpoe-bridge-foundation.jpg'} }
     // );
     // console.log('✅ Static update done:', result1.modifiedCount);
-    // const result1 = await donationsCollection.updateOne(
-    //   { restaurant_email: 'support@savornest.com' },
+
+    // const result2 = await usersCollection.updateOne(
+    //   { email: 'jafna@gamil.com' },
     //   {
-    //     $unset: { request_status: '' }
+    //     $set: { organization_logo: 'https://i.postimg.cc/2595v9Kd/hpoe-bridge-foundation.jpg' }
     //   }
     // );
-    // console.log('✅ Static update done:', result1.modifiedCount);
+    // console.log('✅ Static update done:', result2.modifiedCount);
 
     // custom middle wire
     const verifyFirebaseToken = async (req, res, next) => {
@@ -378,6 +379,36 @@ async function run() {
         });
       }
     });
+
+    // TRANSECTION
+    // GET /transactions?email=user@example.com
+    app.get('/transactions', async (req, res) => {
+      try {
+        const { email } = req.query;
+
+        if (!email) {
+          return res.status(400).send({ error: 'Email is required' });
+        }
+        const decodedEmail = req?.decoded?.email;
+        if (decodedEmail !== email) {
+          return res.status(403).send('Forbidden access from get transection by email')
+        }
+
+        const transactions = await transectionCollection
+          .find({
+            user_email: email,
+            purpose: 'Charity role request'
+          })
+          .sort({ request_time: -1 }) // most recent first
+          .toArray();
+
+        res.send(transactions);
+      } catch (error) {
+        console.error('Error fetching transactions:', error);
+        res.status(500).send({ error: 'Internal Server Error' });
+      }
+    });
+
 
     // DONATIONS
     // POST /donations - Add a new donation
@@ -772,7 +803,7 @@ async function run() {
     });
 
     // GET / reviews by user 
-    app.get('/reviews',verifyFirebaseToken, async (req, res) => {
+    app.get('/reviews', verifyFirebaseToken, async (req, res) => {
       try {
         const { reviewer_email } = req.query;
 
@@ -839,7 +870,7 @@ async function run() {
       try {
         if (decodedEmail !== email) {
           return res.status(403).send('Forbidden access from delete review')
-        } 
+        }
         const result = await reviewsCollection.deleteOne({ _id: new ObjectId(reviewId) });
         if (result.deletedCount === 0) {
           return res.status(404).json({ message: 'Review not found or already deleted.' });
