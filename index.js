@@ -382,7 +382,7 @@ async function run() {
 
     // TRANSECTION
     // GET /transactions?email=user@example.com
-    app.get('/transactions', async (req, res) => {
+    app.get('/transactions', verifyFirebaseToken, async (req, res) => {
       try {
         const { email } = req.query;
 
@@ -508,6 +508,22 @@ async function run() {
         res.status(500).json({ message: 'Internal Server Error' });
       }
     });
+
+    // PATCH: update for feature donation
+    app.patch('/donations/feature/:id', verifyFirebaseToken, async (req, res) => {
+      const id = req.params.id;
+      const {email}=req?.query;
+      const decodedEmail=req?.decoded?.email;
+      if(decodedEmail!==email){
+        return res.status(403).send('Forbidden access from feature donation update')
+      }
+      const result = await donationsCollection.updateOne(
+        { _id: new ObjectId(id) },
+        { $set: { is_featured: true } }
+      );
+      res.send(result);
+    });
+
 
     // Get a single donation by ID
     app.get('/donations/:id', verifyFirebaseToken, async (req, res) => {
