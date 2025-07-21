@@ -512,9 +512,9 @@ async function run() {
     // PATCH: update for feature donation
     app.patch('/donations/feature/:id', verifyFirebaseToken, async (req, res) => {
       const id = req.params.id;
-      const {email}=req?.query;
-      const decodedEmail=req?.decoded?.email;
-      if(decodedEmail!==email){
+      const { email } = req?.query;
+      const decodedEmail = req?.decoded?.email;
+      if (decodedEmail !== email) {
         return res.status(403).send('Forbidden access from feature donation update')
       }
       const result = await donationsCollection.updateOne(
@@ -524,6 +524,21 @@ async function run() {
       res.send(result);
     });
 
+    // GET: featured donations
+    app.get('/donations/featured', async (req, res) => {
+      try {
+        const featured = await donationsCollection
+          .find({ is_featured: true })
+          .sort({ updated_at: -1 })
+          .limit(6)
+          .toArray();
+
+        res.send(featured);
+      } catch (error) {
+        console.error('Error fetching featured donations:', error);
+        res.status(500).json({ message: 'Internal Server Error' });
+      }
+    });
 
     // Get a single donation by ID
     app.get('/donations/:id', verifyFirebaseToken, async (req, res) => {
