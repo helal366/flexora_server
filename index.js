@@ -52,25 +52,26 @@ async function run() {
     const requestsCollection = db.collection('requests') //collection
     const reviewsCollection = db.collection('reviews') //collection
 
-    // const result1 = await transectionCollection.updateMany(
-    //   { user_email: 'jafna@gamil.com' },
-    //   { $set: {organization_name: "HopeBridge Foundation", organization_email: "support@hopebridge.com", organization_contact: "+8801911999777", organization_logo: 'https://i.postimg.cc/2595v9Kd/hpoe-bridge-foundation.jpg'} }
+    // const result1 = await requestsCollection.updateMany(
+    //   { charity_representative_email: 'shifa@gmail.com' },
+    //   { $set: { charity_email: 'hopeharvest_support@gmail.com' } }
     // );
     // console.log('✅ Static update done:', result1.modifiedCount);
 
-    // const result2 = await usersCollection.updateOne(
-    //   { email: 'jafna@gamil.com' },
+    // const result2 = await requestsCollection.updateOne(
+    //   { charity_representative_email: 'shifa@gmail.com' },
     //   {
-    //     $set: { organization_logo: 'https://i.postimg.cc/2595v9Kd/hpoe-bridge-foundation.jpg' }
+    //     $set: { charity_email: 'hopeharvest_support@gmail.com' }
     //   }
     // );
     // console.log('✅ Static update done:', result2.modifiedCount);
 
-    // custom middle wire
+    // CUSTOM MIDDLE WIRES
+    // token verification
     const verifyFirebaseToken = async (req, res, next) => {
       const authHeader = req.headers.authorization;
       if (!authHeader) {
-        return res.status(401).send({ message: 'Unnauthorized access, from authHeader' })
+        return res.status(401).send({ message: 'Unauthorized access, from authHeader' })
       };
       const token = authHeader.split(' ')[1];
       if (!token) {
@@ -85,6 +86,27 @@ async function run() {
       }
       next()
     }
+
+    // email verification
+    const verifyEmail = (req, res, next) => {
+      const decodedEmail = req.decoded?.email; // set by verifyFirebaseToken middleware
+      const emailToCheck = req.query.email || req.params.email || req.body.email;
+
+      if (!decodedEmail) {
+        return res.status(401).json({ message: 'Unauthorized: missing decoded email' });
+      }
+
+      if (!emailToCheck) {
+        return res.status(400).json({ message: 'Bad request: no email provided to verify' });
+      }
+
+      if (decodedEmail !== emailToCheck) {
+        return res.status(403).json({ message: 'Forbidden: email mismatch' });
+      }
+
+      next();
+    };
+
     // USERS API
     // post users
     app.post('/users', async (req, res) => {
@@ -437,17 +459,20 @@ async function run() {
 
     // get all donations 
     app.get('/donations', verifyFirebaseToken, async (req, res) => {
-      const { restaurant_email } = req.query;
+      const { email, status } = req.query;
       const query = {};
 
-      if (restaurant_email) {
-        query.restaurant_representative_email = restaurant_email;
+      if (email) {
+        query.restaurant_representative_email = email;
+      }
+      if (status) {
+        query.status = status
       }
 
       try {
         // You can also check user role here if needed, e.g. only admin allowed
 
-        const donations = await donationsCollection.find(query).toArray();
+        const donations = await donationsCollection.find(query).sort({ posted_at: -1 }).toArray();
         res.status(200).json(donations);
       } catch (error) {
         console.error('Error fetching donations:', error);
@@ -458,6 +483,12 @@ async function run() {
     // PATCH: Update donation status by ID
     app.patch('/donations/:id', verifyFirebaseToken, async (req, res) => {
       const { id } = req.params;
+      const { email } = req.query;
+      const decodedEmail = req?.decoded?.email;
+
+      if (decodedEmail !== email) {
+        return res.status(403).send('Forbidden access from get donations');
+      }
 
       if (!ObjectId.isValid(id)) {
         return res.status(400).json({ message: 'Invalid donation ID.' });
@@ -466,7 +497,6 @@ async function run() {
       const _id = new ObjectId(id);
       const updateFields = req.body;
 
-      // Optional: whitelist only allowed fields to avoid unwanted updates
       const allowedFields = [
         'donation_title',
         'food_type',
@@ -478,7 +508,7 @@ async function run() {
         'status',
         'donation_status',
         'request_status',
-        'updated_at'
+        'updated_at',
       ];
 
       const updatedDoc = {};
@@ -486,6 +516,10 @@ async function run() {
         if (updateFields.hasOwnProperty(key)) {
           updatedDoc[key] = updateFields[key];
         }
+      }
+
+      if (!updatedDoc.updated_at) {
+        updatedDoc.updated_at = new Date();
       }
 
       try {
@@ -502,12 +536,16 @@ async function run() {
           return res.status(200).json({ message: 'No changes detected.' });
         }
 
-        res.status(200).json({ message: 'Donation updated successfully.' });
+        res.status(200).json({
+          message: 'Donation updated successfully.',
+          modifiedCount: result.modifiedCount,
+        });
       } catch (error) {
         console.error('Error updating donation:', error);
         res.status(500).json({ message: 'Internal Server Error' });
       }
     });
+
 
     // PATCH: update for feature donation
     app.patch('/donations/feature/:id', verifyFirebaseToken, async (req, res) => {
@@ -545,7 +583,7 @@ async function run() {
       const { id } = req.params;
       const email = req?.query?.email
       const decodedEmail = req?.decoded?.email;
-      if (req?.decoded?.email !== email) {
+      if (decodedEmail !== email) {
         return res.status(403).send({ message: 'Forbidden! Email mismatch from role request.' })
       }
       if (!ObjectId.isValid(id)) {
@@ -709,15 +747,19 @@ async function run() {
 
     // GET /requests/charity - Get all requests made by a charity (based on their email)
     app.get('/requests/charity', verifyFirebaseToken, async (req, res) => {
-      const charityEmail = req.query.email;
+      const { email } = req?.query;
+      const decodedEmail = req?.decoded?.email;
+      if (decodedEmail !== email) {
+        return res.status(403).send("Forbidden access from get requests by email")
+      }
 
-      if (!charityEmail) {
-        return res.status(400).json({ message: 'Missing charity email in query.' });
+      if (!email) {
+        return res.status(400).json({ message: 'Missing charity representative email in query.' });
       }
 
       try {
         const requests = await requestsCollection
-          .find({ charity_representative_email: charityEmail })
+          .find({ charity_representative_email: email })
           .sort({ created_at: -1 }) // Optional: latest first
           .toArray();
 
