@@ -1156,7 +1156,7 @@ async function run() {
       }
     });
     // delete favorite
-    app.get('/favorites/delete', verifyFirebaseToken, verifyEmail, async (req, res) => {
+    app.delete('/favorites/remove', verifyFirebaseToken, verifyEmail, async (req, res) => {
       const { id } = req.query;
 
       if (!ObjectId.isValid(id)) {
