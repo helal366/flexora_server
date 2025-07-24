@@ -53,9 +53,9 @@ async function run() {
     const reviewsCollection = db.collection('reviews') //collection
     const favoritesCollection = db.collection('favorites') //collection
 
-    // const result1 = await usersCollection.updateMany(
-    //   { email: 'jafna@gamil.com' },
-    //   { $set: { organization_logo: 'https://i.postimg.cc/HLt4v2bh/hpoe-bridge-foundation.jpg' } }
+    // const result1 = await requestsCollection.updateMany(
+    //   { charity_representative_email: 'nazrul@gmail.com' },
+    //   { $set: { charity_logo: 'https://i.postimg.cc/8Cp8FZ4p/food-hope-foundation.webp' } }
     // );
     // console.log('✅ Static update done:', result1.modifiedCount);
 
