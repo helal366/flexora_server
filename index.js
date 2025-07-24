@@ -293,7 +293,6 @@ async function run() {
       let id;
       try {
         id = new ObjectId(req.params.id);
-        // console.log('deleting user id', id)
       } catch (error) {
         return res.status(404).send({ message: 'Invalid user ID format', error: error })
       }
@@ -403,16 +402,16 @@ async function run() {
       }
     });
     // user get user by organization email for charity requests list for home page
-    app.get('/user/charity_requests/:charity_email', verifyFirebaseToken, verifyEmail, async(req, res)=>{
-      const {charity_email}=req.params;
-      if(!charity_email){
-        return res.status(400).send({message: 'Charity email is required'})
+    app.get('/user/charity_requests/:charity_email', verifyFirebaseToken, verifyEmail, async (req, res) => {
+      const { charity_email } = req.params;
+      if (!charity_email) {
+        return res.status(400).send({ message: 'Charity email is required' })
       }
-      try{
-        const charity=await usersCollection.findOne({organization_email: charity_email});
+      try {
+        const charity = await usersCollection.findOne({ organization_email: charity_email });
         res.status(200).send(charity)
-      }catch(error){
-        res.status(500).send({message: 'Failed to find charity!', error: error?.message})
+      } catch (error) {
+        res.status(500).send({ message: 'Failed to find charity!', error: error?.message })
       }
     })
 
@@ -1085,8 +1084,7 @@ async function run() {
         }
         res.status(200).json({ message: 'Review deleted successfully.' });
       } catch (error) {
-        console.error('Error deleting review:', error);
-        res.status(500).json({ message: 'Failed to delete review.' });
+        res.status(500).json({ message: 'Failed to delete review.', error: error?.message });
       }
     });
 
@@ -1113,16 +1111,71 @@ async function run() {
       }
     });
 
-
-
     // FAVORITES
     // post favorites
     app.post('/favorites', verifyFirebaseToken, verifyEmail, async (req, res) => {
       const favorite = req.body;
-      const result = await favoritesCollection.insertOne(favorite);
-      res.send(result);
+      const donationId = favorite?.donationId;
+      const favoriter_email = favorite?.favoriter_email;
+      try {
+        const already = await favoritesCollection.findOne({ favoriter_email, donationId });
+        if (already) {
+          return res.status(409).json({ message: "Already favorited by this user." })
+        }
+        const result = await favoritesCollection.insertOne(favorite);
+        res.status(200).json(result);
+      } catch (error) {
+        res.status(500).json({ message: 'Failed to post favorite.', error: error?.message })
+      }
     });
 
+    // get favorites by user email
+    app.get(`/favorites/user`, verifyFirebaseToken, verifyEmail, async (req, res) => {
+      const { email } = req.query;
+      if (!email) {
+        return res.status(400).send({ message: 'Email query parameter is required' });
+      }
+      try {
+        const favorites = await favoritesCollection.find({ favoriter_email: email }).toArray();
+        res.status(200).send(favorites)
+      } catch (error) {
+        res.status(500).send({ message: 'Failed to find favorites by user email!', error: error?.message })
+      }
+    });
+    // get is already favorited
+    app.get('/favorites/is_favorited', verifyFirebaseToken, verifyEmail, async (req, res) => {
+      const { donationId, email } = req.query;
+      if (!email) {
+        return res.status(400).send({ message: 'Email query parameter is required' });
+      }
+      try {
+        const favorited = await favoritesCollection.findOne({ favoriter_email: email, donationId });
+        res.status(200).json({ favorited: !!favorited })
+      } catch (error) {
+        res.status(500).send({ message: 'Failed to find favorite by user email!', error: error?.message })
+      }
+    });
+    // delete favorite
+    app.get('/favorites/delete', verifyFirebaseToken, verifyEmail, async (req, res) => {
+      const { id } = req.query;
+
+      if (!ObjectId.isValid(id)) {
+        return res.status(400).json({ message: 'Invalid favorite ID format.' });
+      }
+
+      try {
+        const _id = new ObjectId(id);
+        const result = await favoritesCollection.deleteOne({ _id });
+
+        if (result.deletedCount === 0) {
+          return res.status(404).json({ message: 'Favorite not found or already deleted.' });
+        }
+
+        res.status(200).json({ message: 'Favorite successfully deleted.' });
+      } catch (error) {
+        res.status(500).json({ message: 'Failed to delete favorite.', error: error?.message });
+      }
+    });
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
