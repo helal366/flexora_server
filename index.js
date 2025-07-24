@@ -53,9 +53,9 @@ async function run() {
     const reviewsCollection = db.collection('reviews') //collection
     const favoritesCollection = db.collection('favorites') //collection
 
-    // const result1 = await requestsCollection.updateMany(
-    //   { donation_id: '687e4743a4a530fc6baa6fc9' },
-    //   { $set: { donation_status: 'Picked Up' } }
+    // const result1 = await usersCollection.updateMany(
+    //   { email: 'jafna@gamil.com' },
+    //   { $set: { organization_logo: 'https://i.postimg.cc/HLt4v2bh/hpoe-bridge-foundation.jpg' } }
     // );
     // console.log('✅ Static update done:', result1.modifiedCount);
 
@@ -402,6 +402,19 @@ async function run() {
         });
       }
     });
+    // user get user by organization email for charity requests list for home page
+    app.get('/user/charity_requests/:charity_email', verifyFirebaseToken, verifyEmail, async(req, res)=>{
+      const {charity_email}=req.params;
+      if(!charity_email){
+        return res.status(400).send({message: 'Charity email is required'})
+      }
+      try{
+        const charity=await usersCollection.findOne({organization_email: charity_email});
+        res.status(200).send(charity)
+      }catch(error){
+        res.status(500).send({message: 'Failed to find charity!', error: error?.message})
+      }
+    })
 
     // TRANSECTION
     // GET /transactions?email=user@example.com
@@ -778,31 +791,43 @@ async function run() {
     // GET /requests/home/unique for charity email
     app.get('/requests/home_page', verifyFirebaseToken, verifyEmail, async (req, res) => {
       try {
-        const topRequests = await requestsCollection.aggregate([
-          // Sort by created_at DESCENDING first
+        const requests = await requestsCollection.aggregate([
+          // Sort by created_at descending
           { $sort: { created_at: -1 } },
 
-          // Group by charity_email and take the first document (most recent one per charity)
+          // Group by charity_email and collect top requests
           {
             $group: {
               _id: '$charity_email',
-              request: { $first: '$$ROOT' }
+              topRequests: { $push: '$$ROOT' } // all requests, sorted
             }
           },
 
-          // Project only the needed fields (flatten structure if desired)
+          // Slice to keep only top 2 per charity
+          {
+            $project: {
+              _id: 0,
+              charity_email: '$_id',
+              topRequests: { $slice: ['$topRequests', 2] }
+            }
+          },
+
+          // Flatten the topRequests array (1 document per request)
+          { $unwind: '$topRequests' },
+
+          // Replace root with the request data
           {
             $replaceRoot: {
-              newRoot: "$request"
+              newRoot: '$topRequests'
             }
           },
 
-          // Finally limit to 6 results
-          { $limit: 6 }
-
+          // Optional: Limit total result to 6
+          { $limit: 8 }
         ]).toArray();
 
-        res.status(200).json(topRequests);
+
+        res.status(200).json(requests);
 
       } catch (error) {
         console.error('Error fetching top requests:', error);
