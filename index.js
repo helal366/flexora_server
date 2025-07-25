@@ -20,7 +20,7 @@ admin.initializeApp({
 });
 
 // middle wire
-const allowedOrigins = ['http://localhost:5173', 'https://flexora-188f4.web.app']
+const allowedOrigins = ['https://flexora-188f4.web.app', 'http://localhost:5173',]
 app.use(cors({
   origin: (origin, callback) => {
     if (!origin || allowedOrigins.includes(origin)) {
@@ -129,10 +129,11 @@ async function run() {
     });
     // users/patch last login time update
     app.patch('/users/last-login', verifyFirebaseToken, async (req, res) => {
-      const { email, last_login } = req.body;
-      if (!email || !last_login) {
-        return res.status(400).send({ message: 'Email and last_login are required.' });
+      const email=req?.decoded?.email;
+      if (!email ) {
+        return res.status(400).send({ message: 'Email is not found in the token.' });
       }
+      const last_login=new Date()
       try {
         const result = await usersCollection.updateOne({ email }, { $set: { last_login } });
         res.send({ message: 'Last login time updated', result })
@@ -576,7 +577,7 @@ async function run() {
     });
 
     // GET: featured donations
-    app.get('/donations/featured', verifyFirebaseToken, verifyEmail, async (req, res) => {
+    app.get('/donations/featured',  async (req, res) => {
       try {
         const featured = await donationsCollection
           .find({ is_featured: true })
@@ -788,7 +789,7 @@ async function run() {
     });
 
     // GET /requests/home/unique for charity email
-    app.get('/requests/home_page', verifyFirebaseToken, verifyEmail, async (req, res) => {
+    app.get('/requests/home_page',  async (req, res) => {
       try {
         const requests = await requestsCollection.aggregate([
           // Sort by created_at descending
