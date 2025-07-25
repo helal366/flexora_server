@@ -111,20 +111,20 @@ async function run() {
     // USERS API
     // post users
     app.post('/users', async (req, res) => {
+      const user = req.body;
+      const userEmail=user?.email;
       try {
-        const user = req.body;
-        if (!user?.email) {
+        if (!userEmail) {
           return res.status(400).send({ message: 'Email is required.' })
         }
-        const existingUser = await usersCollection.findOne({ email: user?.email });
+        const existingUser = await usersCollection.findOne({ email: userEmail });
         if (existingUser) {
           return res.status(200).send({ message: 'User already exists in the database.' })
         };
         const result = await usersCollection.insertOne(user);
         res.send(result);
       } catch (error) {
-        // console.error('Error creating user', error);
-        res.status(500).send({ message: 'Server error.' })
+        res.status(500).send({ message: 'Server error.', error: error?.message})
       }
     });
     // users/patch last login time update
