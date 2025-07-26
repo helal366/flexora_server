@@ -58,26 +58,27 @@ The backend interacts with a MongoDB database and verifies user identity and aut
 
 ## Setup & Installation
 
-1. Clone the repo:  
+#### 1. Clone the repo:
    ```bash
    git clone https://github.com/Programming-Hero-Web-Course4/b11a12-server-side-Helal366.git
    cd flexora-backend
 
-2. Install dependencies:
+
+#### 2. Install dependencies:
 
 bash
 
 npm install
 
-3. Create a .env file with required environment variables (see below).
+#### 3. Create a .env file with required environment variables (see below).
 
-4. Run the server:
+#### 4. Run the server:
 
 bash
 
 npm start
 
-5. The server will run on the port specified in .env (default 4000).
+#### 5. The server will run on the port specified in .env (default 4000).
 
 ## Environment Variables
 ### Create a .env file with the following keys:
