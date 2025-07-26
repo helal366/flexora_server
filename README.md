@@ -59,9 +59,10 @@ The backend interacts with a MongoDB database and verifies user identity and aut
 ## Setup & Installation
 
 #### 1. Clone the repo:
-   ```bash
-   git clone https://github.com/Programming-Hero-Web-Course4/b11a12-server-side-Helal366.git
-   cd flexora-backend
+
+bash
+git clone https://github.com/Programming-Hero-Web-Course4/b11a12-server-side-Helal366.git
+cd flexora-backend
 
 
 #### 2. Install dependencies:
@@ -107,3 +108,6 @@ Get transactions filtered by user email and purpose.
 - **DELETE** **/donations/:id** — Delete donation
 - **GET** **/donations/featured** — Get featured donations
 - **GET** **/donations/details/:id** — Get detailed donation info
+
+
+   
