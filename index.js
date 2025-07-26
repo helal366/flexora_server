@@ -425,14 +425,8 @@ async function run() {
         if (!email) {
           return res.status(400).send({ error: 'Email is required' });
         }
-        const decodedEmail = req?.decoded?.email;
-        if (decodedEmail !== email) {
-          return res.status(403).send('Forbidden access from get transection by email')
-        }
-
         const transactions = await transectionCollection
           .find({
-            user_email: email,
             purpose: 'Charity role request'
           })
           .sort({ request_time: -1 }) // most recent first
