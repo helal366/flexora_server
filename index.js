@@ -53,8 +53,8 @@ async function run() {
     const reviewsCollection = db.collection('reviews') //collection
     const favoritesCollection = db.collection('favorites') //collection
 
-    // const result1 = await requestsCollection.updateMany(
-    //   { charity_representative_email: 'nazrul@gmail.com' },
+    // const result1 = await transectionCollection.updateMany(
+    //   {},
     //   { $set: { charity_logo: 'https://i.postimg.cc/8Cp8FZ4p/food-hope-foundation.webp' } }
     // );
     // console.log('✅ Static update done:', result1.modifiedCount);
@@ -167,14 +167,12 @@ async function run() {
       }
     })
     // users patch role request
-    app.patch(`/users/role_request/:email`, verifyFirebaseToken, async (req, res) => {
+    app.patch(`/users/role_request/:email`, verifyFirebaseToken, verifyEmail, async (req, res) => {
       const email = req.params.email;
       // console.log('Received role request for:', email);
       const updatedDoc = req.body;
       const { status } = req.body;
-      if (req.decoded.email !== email) {
-        return res.status(403).send({ message: 'Forbidden! Email mismatch from role request.' })
-      }
+     
       try {
         const updateResult = await usersCollection.updateOne({ email }, {
           $set: updatedDoc
@@ -364,7 +362,7 @@ async function run() {
         }
 
         // ✅ Get transaction data
-        const candidateTransection = await transectionCollection.findOne({ user_email: candidateEmail });
+        const candidateTransection = await transectionCollection.findOne({ email: candidateEmail });
         const transectionId = candidateTransection?.transection_id;
 
         // ✅ Update user document
@@ -380,7 +378,7 @@ async function run() {
         // ✅ Update transaction document, if found
         if (transectionId) {
           const transectionStatusUpdate = await transectionCollection.updateOne(
-            { user_email: candidateEmail },
+            { email: candidateEmail },
             { $set: { status } }
           );
 
@@ -418,7 +416,7 @@ async function run() {
 
     // TRANSECTION
     // GET /transactions?email=user@example.com
-    app.get('/transactions', verifyFirebaseToken, async (req, res) => {
+    app.get('/transactions', verifyFirebaseToken, verifyEmail, async (req, res) => {
       try {
         const { email } = req.query;
 
