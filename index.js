@@ -112,7 +112,7 @@ async function run() {
     // post users
     app.post('/users', async (req, res) => {
       const user = req.body;
-      const userEmail=user?.email;
+      const userEmail = user?.email;
       try {
         if (!userEmail) {
           return res.status(400).send({ message: 'Email is required.' })
@@ -124,16 +124,16 @@ async function run() {
         const result = await usersCollection.insertOne(user);
         res.send(result);
       } catch (error) {
-        res.status(500).send({ message: 'Server error.', error: error?.message})
+        res.status(500).send({ message: 'Server error.', error: error?.message })
       }
     });
     // users/patch last login time update
     app.patch('/users/last-login', verifyFirebaseToken, async (req, res) => {
-      const email=req?.decoded?.email;
-      if (!email ) {
+      const email = req?.decoded?.email;
+      if (!email) {
         return res.status(400).send({ message: 'Email is not found in the token.' });
       }
-      const last_login=new Date()
+      const last_login = new Date()
       try {
         const result = await usersCollection.updateOne({ email }, { $set: { last_login } });
         res.send({ message: 'Last login time updated', result })
@@ -172,7 +172,7 @@ async function run() {
       // console.log('Received role request for:', email);
       const updatedDoc = req.body;
       const { status } = req.body;
-     
+
       try {
         const updateResult = await usersCollection.updateOne({ email }, {
           $set: updatedDoc
@@ -288,45 +288,120 @@ async function run() {
       }
     });
     // Delete user
-    app.delete('/users/:id', verifyFirebaseToken, async (req, res) => {
+    // app.delete('/users/:id', verifyFirebaseToken, async (req, res) => {
+    //   let id;
+    //   try {
+    //     id = new ObjectId(req?.params?.id);
+    //   } catch (error) {
+    //     return res.status(404).send({ message: 'Invalid user ID format', error: error })
+    //   }
+    //   try {
+    //     // find the user first to find the uid
+    //     const userToDelete = await usersCollection.findOne({ _id: id });
+    //     if (!userToDelete) {
+    //       return res.status(404).send({ message: 'User not found.' })
+    //     }
+    //     // delete from firebase
+    //     const uid = userToDelete?.uid;
+    //     const transectionId = userToDelete?.transection_id
+    //     if (uid) {
+    //       await getAuth().deleteUser(uid)
+    //     } else {
+    //       return res.status(404).send({ message: 'User UID not found' })
+    //     }
+    //     // delete associated transection
+    //     let deleteTransectionResult = { deletedCount: 0 }
+    //     if (transectionId) {
+    //       deleteTransectionResult = await transectionCollection.deleteOne({ transection_id: transectionId });
+    //     }
+    //     // delete user from mongodb
+    //     const deleteFromMongodb = await usersCollection.deleteOne({ _id: id });
+
+    //     res.send({
+    //       message: 'User successfully deleted from mongodb firebase and with associated transection',
+    //       firebaseDeleted: !!uid,
+    //       userDeleted: deleteFromMongodb,
+    //       transectionDeleted: deleteTransectionResult
+    //     })
+
+    //   } catch (error) {
+    //     res.status(500).send({ message: 'Failed to delete user.', error: error })
+    //   }
+    // })
+
+    app.delete('/users/:id', verifyFirebaseToken, verifyEmail, async (req, res) => {
       let id;
       try {
-        id = new ObjectId(req.params.id);
+        id = new ObjectId(req?.params?.id);
       } catch (error) {
-        return res.status(404).send({ message: 'Invalid user ID format', error: error })
+        return res.status(404).send({ message: 'Invalid user ID format', error });
       }
+
       try {
-        // find the user first to find the uid
         const userToDelete = await usersCollection.findOne({ _id: id });
         if (!userToDelete) {
-          return res.status(404).send({ message: 'User not found.' })
+          return res.status(404).send({ message: 'User not found.' });
         }
-        // delete from firebase
+
         const uid = userToDelete?.uid;
-        const transectionId = userToDelete?.transection_id
+        const transectionId = userToDelete?.transection_id;
+        const userEmail = userToDelete?.email;
+        const userRole = userToDelete?.role;
+
+        // Delete from Firebase
         if (uid) {
-          await getAuth().deleteUser(uid)
+          await getAuth().deleteUser(uid);
         } else {
-          return res.status(404).send({ message: 'User UID not found' })
+          return res.status(404).send({ message: 'User UID not found' });
         }
-        // delete associated transection
-        let deleteTransectionResult = { deletedCount: 0 }
-        if (transectionId) {
-          deleteTransectionResult = await transectionCollection.deleteOne({ transection_id: transectionId });
+
+        // Delete associated transaction
+        let transectionDeleted = { deletedCount: 0 };
+        if (transectionId && transectionId !== 'not_applicable') {
+          transectionDeleted = await transectionCollection.deleteOne({ transection_id: transectionId });
         }
-        // delete user from mongodb
-        const deleteFromMongodb = await usersCollection.deleteOne({ _id: id });
-        res.send({
-          message: 'User successfully deleted from mongodb firebase and with associated transection',
+
+        // Initialize deletion results
+        let donationsDeleted = { deletedCount: 0 };
+        let requestsDeleted = { deletedCount: 0 };
+        let reviewsDeleted = { deletedCount: 0 };
+        let favoritesDeleted = { deletedCount: 0 };
+
+        // Delete from donations collection (if restaurant)
+        if (userRole === 'restaurant') {
+          donationsDeleted = await donationsCollection.deleteMany({ restaurant_representative_email: userEmail });
+        }
+
+        // Delete from requests collection (if charity)
+        if (userRole === 'charity') {
+          requestsDeleted = await requestsCollection.deleteMany({ charity_representative_email: userEmail });
+        }
+
+        // Delete reviews & favorites (if user or charity)
+        if (userRole === 'user' || userRole === 'charity') {
+          reviewsDeleted = await reviewsCollection.deleteMany({ reviewer_email: userEmail });
+          favoritesDeleted = await favoritesCollection.deleteMany({ favoriter_email: userEmail });
+        }
+
+        // Finally, delete user
+        const userDeleted = await usersCollection.deleteOne({ _id: id });
+
+        return res.send({
+          message: 'User and related data deleted successfully.',
           firebaseDeleted: !!uid,
-          userDeleted: deleteFromMongodb,
-          transectionDeleted: deleteTransectionResult
-        })
+          userDeleted,
+          transectionDeleted,
+          donationsDeleted,
+          requestsDeleted,
+          reviewsDeleted,
+          favoritesDeleted
+        });
 
       } catch (error) {
-        res.status(500).send({ message: 'Failed to delete user.', error: error })
+        return res.status(500).send({ message: 'Failed to delete user.', error });
       }
-    })
+    });
+
     // users get all role request 
     app.get('/users/role_requests', verifyFirebaseToken, async (req, res) => {
       try {
@@ -569,7 +644,7 @@ async function run() {
     });
 
     // GET: featured donations
-    app.get('/donations/featured',  async (req, res) => {
+    app.get('/donations/featured', async (req, res) => {
       try {
         const featured = await donationsCollection
           .find({ is_featured: true })
@@ -781,7 +856,7 @@ async function run() {
     });
 
     // GET /requests/home/unique for charity email
-    app.get('/requests/home_page',  async (req, res) => {
+    app.get('/requests/home_page', async (req, res) => {
       try {
         const requests = await requestsCollection.aggregate([
           // Sort by created_at descending
