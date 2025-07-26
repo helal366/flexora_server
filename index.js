@@ -53,9 +53,9 @@ async function run() {
     const reviewsCollection = db.collection('reviews') //collection
     const favoritesCollection = db.collection('favorites') //collection
 
-    // const result1 = await transectionCollection.updateMany(
-    //   {},
-    //   { $set: { charity_logo: 'https://i.postimg.cc/8Cp8FZ4p/food-hope-foundation.webp' } }
+    // const result1 = await requestsCollection.updateMany(
+    //   {charity_representative_email: 'sharifa@gmail.com'},
+    //   { $set: { charity_logo: 'https://res.cloudinary.com/dhwsz1x8r/image/upload/v1752685346/qgrshech9gdnz38v560d.webp' } }
     // );
     // console.log('✅ Static update done:', result1.modifiedCount);
 
