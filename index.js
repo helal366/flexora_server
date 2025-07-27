@@ -80,10 +80,9 @@ async function run() {
       }
       try {
         const decoded = await admin.auth().verifyIdToken(token);
-        // console.log({decoded})
         req.decoded = decoded;
       } catch (error) {
-        return res.status(403).send({ message: 'Forbidden access from try catch token verify', error })
+        return res.status(403).json({ message: 'Forbidden access from try catch token verify', error: error?.message })
       }
       next()
     }
@@ -138,7 +137,7 @@ async function run() {
         const result = await usersCollection.updateOne({ email }, { $set: { last_login } });
         res.send({ message: 'Last login time updated', result })
       } catch (error) {
-        res.status(500).send({ error: error?.message })
+        res.status(500).json({ message: 'Last login time update failed!', error: error?.message })
       }
     });
     // stripe create-payment-intent
@@ -152,7 +151,7 @@ async function run() {
         });
         res.send({ clientSecret: paymentIntent.client_secret });
       } catch (error) {
-        res.status(500).send({ message: 'Failed to create payment intent', error })
+        res.status(500).send({ message: 'Failed to create payment intent', error:error?.message })
       }
     });
     // stripe save transection after successful payment
@@ -163,13 +162,12 @@ async function run() {
         const result = await transectionCollection.insertOne(transection);
         res.send({ message: 'Transection saved successfully.', result })
       } catch (error) {
-        res.status(500).send({ message: 'Failed to save transection', error })
+        res.status(500).json({ message: 'Failed to save transection', error:error?.message })
       }
     })
     // users patch role request
     app.patch(`/users/role_request/:email`, verifyFirebaseToken, verifyEmail, async (req, res) => {
       const email = req.params.email;
-      // console.log('Received role request for:', email);
       const updatedDoc = req.body;
       const { status } = req.body;
 
@@ -182,7 +180,7 @@ async function run() {
         })
         res.send({ message: 'Role request submitted successfully.', userUpdate: updateResult, transectionUpdate: updateTransectionStatus })
       } catch (error) {
-        res.status(500).send({ error: 'Failed to update user data' })
+        res.status(500).json({message: 'Failed to update user data', error:error?.message })
       }
     });
     // users patch charity profile update
@@ -209,9 +207,7 @@ async function run() {
             mission: updatedData.mission,
             organization_logo: updatedData.organization_logo,
             photoURL: updatedData.photoURL,
-            // Optionally update status and transection_id only if passed
-            // ...(updatedData.status && { status: updatedData.status }),
-            // ...(updatedData.transection_id && { transection_id: updatedData.transection_id })
+            
           }
         };
 
@@ -219,8 +215,7 @@ async function run() {
 
         res.send(result);
       } catch (error) {
-        console.error('Charity profile update failed:', error);
-        res.status(500).send({ error: 'Internal Server Error' });
+        res.status(500).send({ message: 'Internal Server Error', error: error?.message });
       }
     });
     // users patch restaurant profile update
@@ -254,15 +249,13 @@ async function run() {
 
         res.send(result);
       } catch (error) {
-        console.error('Restaurant profile update failed:', error);
-        res.status(500).send({ error: 'Internal Server Error' });
+        res.status(500).send({ message: 'Internal Server Error', error: error?.message });
       }
     });
 
     // users get user by email 
     app.get('/user', verifyFirebaseToken, async (req, res) => {
       const email = req.query.email;
-      console.log(email)
       const user_by_email = await usersCollection.findOne({ email });
       res.send({ user_by_email: user_by_email })
     });
@@ -279,56 +272,14 @@ async function run() {
         res.status(403).send('Forbidden! Email mismatch from direct role change by admin.');
       }
       const updatedDoc = req.body;
-      // console.log({updatedDoc})
       try {
         const result = await usersCollection.updateOne({ email: candidateEmail }, { $set: updatedDoc })
-        res.send('Role directly update by admin is successful', result)
+        res.send({message: 'Role directly update by admin is successful', result})
       } catch (error) {
-        res.status(500).send('Failed to directly update role by admin.')
+        res.status(500).json({message:'Failed to directly update role by admin.', error:error?.message})
       }
     });
-    // Delete user
-    // app.delete('/users/:id', verifyFirebaseToken, async (req, res) => {
-    //   let id;
-    //   try {
-    //     id = new ObjectId(req?.params?.id);
-    //   } catch (error) {
-    //     return res.status(404).send({ message: 'Invalid user ID format', error: error })
-    //   }
-    //   try {
-    //     // find the user first to find the uid
-    //     const userToDelete = await usersCollection.findOne({ _id: id });
-    //     if (!userToDelete) {
-    //       return res.status(404).send({ message: 'User not found.' })
-    //     }
-    //     // delete from firebase
-    //     const uid = userToDelete?.uid;
-    //     const transectionId = userToDelete?.transection_id
-    //     if (uid) {
-    //       await getAuth().deleteUser(uid)
-    //     } else {
-    //       return res.status(404).send({ message: 'User UID not found' })
-    //     }
-    //     // delete associated transection
-    //     let deleteTransectionResult = { deletedCount: 0 }
-    //     if (transectionId) {
-    //       deleteTransectionResult = await transectionCollection.deleteOne({ transection_id: transectionId });
-    //     }
-    //     // delete user from mongodb
-    //     const deleteFromMongodb = await usersCollection.deleteOne({ _id: id });
-
-    //     res.send({
-    //       message: 'User successfully deleted from mongodb firebase and with associated transection',
-    //       firebaseDeleted: !!uid,
-    //       userDeleted: deleteFromMongodb,
-    //       transectionDeleted: deleteTransectionResult
-    //     })
-
-    //   } catch (error) {
-    //     res.status(500).send({ message: 'Failed to delete user.', error: error })
-    //   }
-    // })
-
+    
     app.delete('/users/:id', verifyFirebaseToken, verifyEmail, async (req, res) => {
       let id;
       try {
@@ -398,7 +349,7 @@ async function run() {
         });
 
       } catch (error) {
-        return res.status(500).send({ message: 'Failed to delete user.', error });
+        return res.status(500).send({ message: 'Failed to delete user.', error:error?.message });
       }
     });
 
@@ -413,7 +364,7 @@ async function run() {
         res.status(200).json({ success: true, data: roleRequests });
 
       } catch (error) {
-        res.status(500).send({ message: 'Failed to fetch role request', error: error })
+        res.status(500).send({ message: 'Failed to fetch role request', error: error?.message })
       }
     });
     // users role update to restaurant or charity for approved or reject to user;
@@ -471,7 +422,7 @@ async function run() {
       } catch (err) {
         res.status(500).send({
           message: 'Status and role update failed!',
-          error: err.message
+          error: err?.message
         });
       }
     });
@@ -507,8 +458,7 @@ async function run() {
 
         res.send(transactions);
       } catch (error) {
-        console.error('Error fetching transactions:', error);
-        res.status(500).send({ error: 'Internal Server Error' });
+        res.status(500).send({ message: 'Internal Server Error', error: error?.message });
       }
     });
 
@@ -518,7 +468,6 @@ async function run() {
     app.post('/donations', verifyFirebaseToken, async (req, res) => {
       try {
         const donationData = req.body;
-        console.log(donationData)
         // Add status and posted_at timestamp
         donationData.status = 'Pending';
         donationData.posted_at = new Date(); // current date and time
@@ -530,10 +479,9 @@ async function run() {
           insertedId: result.insertedId,
         });
       } catch (error) {
-        console.error('Error adding donation:', error);
         res.status(500).send({
           message: 'Failed to add donation',
-          error: error.message,
+          error: error?.message,
         });
       }
     });
@@ -556,8 +504,7 @@ async function run() {
         const donations = await donationsCollection.find(query).sort({ posted_at: -1 }).toArray();
         res.status(200).json(donations);
       } catch (error) {
-        console.error('Error fetching donations:', error);
-        res.status(500).json({ message: 'Failed to fetch donations', error: error.message });
+        res.status(500).json({ message: 'Failed to fetch donations', error: error?.message });
       }
     });
 
@@ -622,8 +569,7 @@ async function run() {
           modifiedCount: result.modifiedCount,
         });
       } catch (error) {
-        console.error('Error updating donation:', error);
-        res.status(500).json({ message: 'Internal Server Error' });
+        res.status(500).json({ message: 'Internal Server Error', error: error?.message });
       }
     });
 
@@ -683,7 +629,6 @@ async function run() {
 
         res.status(200).json(donation);
       } catch (error) {
-        console.error('Error fetching donation:', error);
         // Here 500 Internal Server Error might be more appropriate for unexpected errors
         res.status(500).json({ message: 'Failed to fetch donation.', error: error?.message });
       }
@@ -702,8 +647,7 @@ async function run() {
           res.status(404).send({ message: 'Donation not found.' });
         }
       } catch (error) {
-        console.error('Error deleting donation:', error);
-        res.status(500).send({ message: 'Internal Server Error' });
+        res.status(500).send({ message: 'Internal Server Error', error: error?.message });
       }
     });
 
@@ -797,8 +741,7 @@ async function run() {
 
         res.status(201).json({ message: 'Request submitted successfully', insertedId: result.insertedId });
       } catch (error) {
-        console.error('Error submitting donation request:', error);
-        res.status(500).json({ message: 'Internal server error', error: error });
+        res.status(500).json({ message: 'Internal server error', error: error?.message });
       }
     });
 
@@ -828,8 +771,7 @@ async function run() {
         // If not locked, respond with alreadyRequested status only
         res.status(200).json({ alreadyRequested: !!exists });
       } catch (error) {
-        console.error('Error in request check:', error);
-        res.status(500).json({ message: 'Internal server error', error: error });
+        res.status(500).json({ message: 'Internal server error', error: error?.message });
       }
     });
 
@@ -850,8 +792,7 @@ async function run() {
 
         res.status(200).json(requests);
       } catch (error) {
-        console.error('Error fetching restaurant requests:', error);
-        res.status(500).json({ message: 'Internal server error' });
+        res.status(500).json({ message: 'Internal server error', error: error?.message });
       }
     });
 
@@ -897,8 +838,7 @@ async function run() {
         res.status(200).json(requests);
 
       } catch (error) {
-        console.error('Error fetching top requests:', error);
-        res.status(500).json({ message: 'Server error while fetching top requests' });
+        res.status(500).json({ message: 'Server error while fetching top requests', error: error?.message});
       }
     });
 
@@ -928,8 +868,7 @@ async function run() {
 
         res.status(200).json({ message: 'Request status updated successfully.' });
       } catch (error) {
-        console.error('Error updating request status:', error);
-        res.status(500).json({ message: 'Internal server error.' });
+        res.status(500).json({ message: 'Internal server error.', error: error?.message });
       }
     });
 
@@ -953,8 +892,7 @@ async function run() {
           modifiedCount: result.modifiedCount,
         });
       } catch (error) {
-        console.error('Error rejecting other requests:', error);
-        res.status(500).json({ message: 'Internal server error.' });
+        res.status(500).json({ message: 'Internal server error.', error: error?.message });
       }
     });
 
@@ -973,8 +911,7 @@ async function run() {
 
         res.status(200).json(requests);
       } catch (error) {
-        console.error(' Error fetching charity requests:', error);
-        res.status(500).json({ message: 'Internal server error.' });
+        res.status(500).json({ message: 'Internal server error.', error: error?.message });
       }
     });
 
@@ -985,7 +922,7 @@ async function run() {
 
         // Security check: ensure the requesting user matches the charity_email
         if (req?.decoded?.email !== charity_representative_email) {
-          return res.status(403).json({ message: 'Forbidden: Email mismatch from get requests.' });
+          return res.status(403).json({ message: 'Forbidden: Email mismatch from get requests.' , error: error?.message});
         }
 
         const query = {};
@@ -994,11 +931,9 @@ async function run() {
         if (picking_status) query.picking_status = picking_status;
 
         const requests = await requestsCollection.find(query).toArray();
-        // console.log({ requests })
         res.status(200).json(requests);
       } catch (error) {
-        console.error('Error fetching charity requests:', error);
-        res.status(500).json({ message: 'Failed to fetch requests.' });
+        res.status(500).json({ message: 'Failed to fetch requests.', error: error?.message});
       }
     });
 
@@ -1017,8 +952,7 @@ async function run() {
         }
         res.status(200).json({ message: 'Request deleted successfully.' });
       } catch (error) {
-        console.error('Error deleting request:', error);
-        res.status(500).json({ message: 'Internal server error' });
+        res.status(500).json({ message: 'Internal server error', error: error?.message });
       }
     });
 
@@ -1068,8 +1002,7 @@ async function run() {
           donationModified: donationUpdateResult.modifiedCount
         });
       } catch (error) {
-        console.error('Error confirming pickup:', error);
-        res.status(500).json({ message: 'Internal Server Error' });
+        res.status(500).json({ message: 'Internal Server Error', error: error?.message });
       }
     });
 
@@ -1111,7 +1044,6 @@ async function run() {
 
         res.status(201).json({ message: 'Review submitted successfully', insertedId: result.insertedId });
       } catch (error) {
-        console.error('Error inserting review:', error);
         res.status(500).send({ message: 'Internal Server Error', error: error?.message });
       }
     });
@@ -1132,7 +1064,6 @@ async function run() {
 
         res.status(200).json(reviews);
       } catch (error) {
-        console.error('Error fetching reviews:', error);
         res.status(500).json({ message: 'Failed to fetch reviews', error: error?.message });
       }
     });
