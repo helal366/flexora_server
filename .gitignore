@@ -1,1 +1,5 @@
 .vercel
+.env
+.vscode
+flexora-firebase-adminsdk.json
+node_modules
