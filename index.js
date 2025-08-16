@@ -204,9 +204,35 @@ async function run() {
           }
         };
 
-        const result = await usersCollection.updateOne(filter, updateDoc);
+        const userResult = await usersCollection.updateOne(filter, updateDoc);
+        if (userResult.matchedCount === 0) {
+      return res.status(404).send({ message: 'User not found' });
+    }
 
-        res.send(result);
+        // res.send(result);
+         // 2️⃣ Update requests collection
+    const requestUpdateDoc = {
+      $set: {
+        charity_name: updatedData.organization_name,
+        charity_contact: updatedData.organization_contact,
+        charity_email: updatedData.organization_email,
+        charity_address: updatedData.organization_address,
+        charity_logo: updatedData.organization_logo,
+      }
+    };
+
+     const requestsResult = await requestsCollection.updateMany(
+      { charity_representative_email: emailParam },
+      requestUpdateDoc
+    );
+
+     res.send({
+      message: 'Charity profile updated successfully',
+      userUpdate: userResult,
+      requestsUpdate: requestsResult,
+       note: requestsResult.matchedCount === 0 ? 'No requests matched this charity email' : undefined
+    });
+
       } catch (error) {
         res.status(500).send({ message: 'Internal Server Error', error: error?.message });
       }
@@ -241,6 +267,8 @@ async function run() {
         const result = await usersCollection.updateOne(filter, updateDoc);
 
         res.send(result);
+        
+
       } catch (error) {
         res.status(500).send({ message: 'Internal Server Error', error: error?.message });
       }
