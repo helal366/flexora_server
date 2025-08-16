@@ -8,6 +8,14 @@ const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const app = express();
 const port = process.env.PORT || 4000;
 
+// middle wire
+const allowedOrigins = ['https://flexora-188f4.web.app', 'http://localhost:5173', 'http://localhost:5174',]
+app.use(cors({
+  origin:  allowedOrigins ,
+  credentials: true
+}));
+
+app.use(express.json());
 
 // fire admin 
 if (!process.env.FB_SERVICE_KEY) {
@@ -18,21 +26,6 @@ const serviceAccount = JSON.parse(decodedKey);
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount)
 });
-
-// middle wire
-const allowedOrigins = ['https://flexora-188f4.web.app', 'http://localhost:5173',]
-app.use(cors({
-  origin: (origin, callback) => {
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
-  credentials: true
-}));
-
-app.use(express.json());
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
 const client = new MongoClient(process.env.MONGODB_URI, {
@@ -487,7 +480,7 @@ async function run() {
     });
 
     // get all donations 
-    app.get('/donations', verifyFirebaseToken, async (req, res) => {
+    app.get('/donations',  async (req, res) => {
       const { email, status } = req.query;
       const query = {};
 
