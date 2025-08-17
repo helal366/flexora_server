@@ -1235,7 +1235,7 @@ async function run() {
     });
 
     // top charity requester and it's requests
-    app.get('/top-charity-requests', verifyFirebaseToken, verifyEmail, async (req, res) => {
+    app.get('/top-charity-requests',  async (req, res) => {
       try {
         // Step 1: Find the charity with most requests
         const topCharityAgg = await requestsCollection.aggregate([
