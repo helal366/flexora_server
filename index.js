@@ -1327,10 +1327,10 @@ async function run() {
     });
 
     // Get all Picked Up donations
-    app.get('/donations/picked-up', async (req, res) => {
+    app.get('/picked-up-donations', async (req, res) => {
       try {
         const donations = await donationsCollection
-          .find({ donation_status: "Picked Up" })
+          .find({ donation_status:"Picked Up" })
           .sort({ picked_up_at: -1 }) // optional: newest first if you track picked_up_at
           .toArray();
 
