@@ -11,7 +11,7 @@ const port = process.env.PORT || 4000;
 // middle wire
 const allowedOrigins = ['https://flexora-188f4.web.app', 'http://localhost:5173', 'http://localhost:5174',]
 app.use(cors({
-  origin:  allowedOrigins ,
+  origin: allowedOrigins,
   credentials: true
 }));
 
@@ -144,7 +144,7 @@ async function run() {
         });
         res.send({ clientSecret: paymentIntent.client_secret });
       } catch (error) {
-        res.status(500).send({ message: 'Failed to create payment intent', error:error?.message })
+        res.status(500).send({ message: 'Failed to create payment intent', error: error?.message })
       }
     });
     // stripe save transection after successful payment
@@ -155,7 +155,7 @@ async function run() {
         const result = await transectionCollection.insertOne(transection);
         res.send({ message: 'Transection saved successfully.', result })
       } catch (error) {
-        res.status(500).json({ message: 'Failed to save transection', error:error?.message })
+        res.status(500).json({ message: 'Failed to save transection', error: error?.message })
       }
     })
     // users patch role request
@@ -173,7 +173,7 @@ async function run() {
         })
         res.send({ message: 'Role request submitted successfully.', userUpdate: updateResult, transectionUpdate: updateTransectionStatus })
       } catch (error) {
-        res.status(500).json({message: 'Failed to update user data', error:error?.message })
+        res.status(500).json({ message: 'Failed to update user data', error: error?.message })
       }
     });
     // users patch charity profile update
@@ -200,38 +200,38 @@ async function run() {
             mission: updatedData.mission,
             organization_logo: updatedData.organization_logo,
             photoURL: updatedData.photoURL,
-            
+
           }
         };
 
         const userResult = await usersCollection.updateOne(filter, updateDoc);
         if (userResult.matchedCount === 0) {
-      return res.status(404).send({ message: 'User not found' });
-    }
+          return res.status(404).send({ message: 'User not found' });
+        }
 
         // res.send(result);
-         // 2️⃣ Update requests collection
-    const requestUpdateDoc = {
-      $set: {
-        charity_name: updatedData.organization_name,
-        charity_contact: updatedData.organization_contact,
-        charity_email: updatedData.organization_email,
-        charity_address: updatedData.organization_address,
-        charity_logo: updatedData.organization_logo,
-      }
-    };
+        // 2️⃣ Update requests collection
+        const requestUpdateDoc = {
+          $set: {
+            charity_name: updatedData.organization_name,
+            charity_contact: updatedData.organization_contact,
+            charity_email: updatedData.organization_email,
+            charity_address: updatedData.organization_address,
+            charity_logo: updatedData.organization_logo,
+          }
+        };
 
-     const requestsResult = await requestsCollection.updateMany(
-      { charity_representative_email: emailParam },
-      requestUpdateDoc
-    );
+        const requestsResult = await requestsCollection.updateMany(
+          { charity_representative_email: emailParam },
+          requestUpdateDoc
+        );
 
-     res.send({
-      message: 'Charity profile updated successfully',
-      userUpdate: userResult,
-      requestsUpdate: requestsResult,
-       note: requestsResult.matchedCount === 0 ? 'No requests matched this charity email' : undefined
-    });
+        res.send({
+          message: 'Charity profile updated successfully',
+          userUpdate: userResult,
+          requestsUpdate: requestsResult,
+          note: requestsResult.matchedCount === 0 ? 'No requests matched this charity email' : undefined
+        });
 
       } catch (error) {
         res.status(500).send({ message: 'Internal Server Error', error: error?.message });
@@ -267,7 +267,7 @@ async function run() {
         const result = await usersCollection.updateOne(filter, updateDoc);
 
         res.send(result);
-        
+
 
       } catch (error) {
         res.status(500).send({ message: 'Internal Server Error', error: error?.message });
@@ -295,12 +295,12 @@ async function run() {
       const updatedDoc = req.body;
       try {
         const result = await usersCollection.updateOne({ email: candidateEmail }, { $set: updatedDoc })
-        res.send({message: 'Role directly update by admin is successful', result})
+        res.send({ message: 'Role directly update by admin is successful', result })
       } catch (error) {
-        res.status(500).json({message:'Failed to directly update role by admin.', error:error?.message})
+        res.status(500).json({ message: 'Failed to directly update role by admin.', error: error?.message })
       }
     });
-    
+
     app.delete('/users/:id', verifyFirebaseToken, verifyEmail, async (req, res) => {
       let id;
       try {
@@ -370,7 +370,7 @@ async function run() {
         });
 
       } catch (error) {
-        return res.status(500).send({ message: 'Failed to delete user.', error:error?.message });
+        return res.status(500).send({ message: 'Failed to delete user.', error: error?.message });
       }
     });
 
@@ -461,14 +461,14 @@ async function run() {
       }
     })
     // get all charity organozations 
-    app.get('/charities', verifyFirebaseToken, verifyEmail, async(req,res)=>{
-      try{
-        const charities=await usersCollection
-        .find({role: 'charity'})
-        .project({password: 0})
-        .toArray()
+    app.get('/charities', verifyFirebaseToken, verifyEmail, async (req, res) => {
+      try {
+        const charities = await usersCollection
+          .find({ role: 'charity' })
+          .project({ password: 0 })
+          .toArray()
         res.send(charities)
-      }catch(error){
+      } catch (error) {
         res.status(500).send({
           message: 'Charities loading failed.',
           error: error?.message
@@ -523,7 +523,7 @@ async function run() {
     });
 
     // get all donations 
-    app.get('/donations',  async (req, res) => {
+    app.get('/donations', async (req, res) => {
       const { email, status } = req.query;
       const query = {};
 
@@ -874,7 +874,7 @@ async function run() {
         res.status(200).json(requests);
 
       } catch (error) {
-        res.status(500).json({ message: 'Server error while fetching top requests', error: error?.message});
+        res.status(500).json({ message: 'Server error while fetching top requests', error: error?.message });
       }
     });
 
@@ -958,7 +958,7 @@ async function run() {
 
         // Security check: ensure the requesting user matches the charity_email
         if (req?.decoded?.email !== charity_representative_email) {
-          return res.status(403).json({ message: 'Forbidden: Email mismatch from get requests.' , error: error?.message});
+          return res.status(403).json({ message: 'Forbidden: Email mismatch from get requests.', error: error?.message });
         }
 
         const query = {};
@@ -969,7 +969,7 @@ async function run() {
         const requests = await requestsCollection.find(query).toArray();
         res.status(200).json(requests);
       } catch (error) {
-        res.status(500).json({ message: 'Failed to fetch requests.', error: error?.message});
+        res.status(500).json({ message: 'Failed to fetch requests.', error: error?.message });
       }
     });
 
@@ -1209,6 +1209,28 @@ async function run() {
         res.status(200).json({ message: 'Favorite successfully deleted.' });
       } catch (error) {
         res.status(500).json({ message: 'Failed to delete favorite.', error: error?.message });
+      }
+    });
+
+    // Backend: /overview route
+    app.get('/overview', verifyFirebaseToken, verifyEmail, async (req, res) => {
+      try {
+        // Count approved donations
+        const approvedDonations = await donationsCollection.countDocuments({ status: Verified });
+
+        // Count all charity requests
+        const charityRequests = await requestsCollection.countDocuments();
+
+        // Count picked up donations
+        const pickedUpDonations = await requestsCollection.countDocuments({ request_status: 'Picked Up' });
+
+        res.send({ approvedDonations, charityRequests, pickedUpDonations });
+      } catch (error) {
+        console.error('Overview fetch error:', error);
+        res.status(500).send({
+          message: 'Failed to load overview data.',
+          error: error?.message,
+        });
       }
     });
 
