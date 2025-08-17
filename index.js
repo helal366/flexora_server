@@ -1344,7 +1344,7 @@ async function run() {
     app.get('/recent-verified-donations',  async (req, res) => {
       try {
         const donations = await donationsCollection
-          .find({ donation_status: "Verified" })
+          .find({ status: "Verified" })
           .sort({ posted_at: -1, _id: -1 })
           .limit(8)
           .toArray();
