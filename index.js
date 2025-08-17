@@ -1330,7 +1330,7 @@ async function run() {
     app.get('/picked-up-donations', async (req, res) => {
       try {
         const donations = await donationsCollection
-          .find({ donation_status:"Picked Up" })
+          .find({ donation_status: "Picked Up" })
           .sort({ picked_up_at: -1 }) // optional: newest first if you track picked_up_at
           .toArray();
 
@@ -1340,6 +1340,21 @@ async function run() {
         res.status(500).send({ message: "Failed to fetch Picked Up donations" });
       }
     });
+    // recently donations
+    app.get('/donations/recent-verified', verifyFirebaseToken, async (req, res) => {
+      try {
+        const donations = await donationsCollection
+          .find({ donation_status: "Verified" })
+          .sort({ created_at: -1 })
+          .limit(8)
+          .toArray();
+        res.status(200).send(donations);
+      } catch (error) {
+        console.error("Error fetching recent verified donations:", error);
+        res.status(500).send({ message: "Internal Server Error" });
+      }
+    });
+
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
