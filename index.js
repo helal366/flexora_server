@@ -1341,7 +1341,7 @@ async function run() {
       }
     });
     // recently donations
-    app.get('/recent-verified-donations',  async (req, res) => {
+    app.get('/recent-verified-donations', async (req, res) => {
       try {
         const donations = await donationsCollection
           .find({ status: "Verified" })
@@ -1351,6 +1351,37 @@ async function run() {
         res.status(200).send(donations);
       } catch (error) {
         console.error("Error fetching recent verified donations:", error);
+        res.status(500).send({ message: "Internal Server Error" });
+      }
+    });
+
+    // GET /users/count-by-role
+    app.get('/users-count-by-role', async (req, res) => {
+      try {
+        const userCounts = await usersCollection.aggregate([
+          {
+            $group: {
+              _id: "$role",       // group by role
+              count: { $sum: 1 }  // count users
+            }
+          }
+        ]).toArray();
+
+        // Convert to an object { role: count, ... }
+        const counts = {
+          admin: 0,
+          restaurant: 0,
+          charity: 0,
+          user: 0,
+        };
+
+        userCounts.forEach(item => {
+          counts[item._id] = item.count;
+        });
+
+        res.status(200).send(counts);
+      } catch (error) {
+        console.error("Error fetching user counts:", error);
         res.status(500).send({ message: "Internal Server Error" });
       }
     });
