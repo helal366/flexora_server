@@ -1326,6 +1326,21 @@ async function run() {
       }
     });
 
+    // Get all Picked Up donations
+    app.get('/donations/picked-up', async (req, res) => {
+      try {
+        const donations = await donationsCollection
+          .find({ donation_status: "Picked Up" })
+          .sort({ picked_up_at: -1 }) // optional: newest first if you track picked_up_at
+          .toArray();
+
+        res.status(200).send(donations);
+      } catch (error) {
+        console.error("Error fetching Picked Up donations:", error);
+        res.status(500).send({ message: "Failed to fetch Picked Up donations" });
+      }
+    });
+
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
     console.log("Pinged your deployment. You successfully connected to MongoDB!");
