@@ -1284,7 +1284,7 @@ async function run() {
 
     // top donated restaurant and it's all donations
     // Top donated restaurant and its donations
-    app.get('/top-donated-restaurant', verifyFirebaseToken, async (req, res) => {
+    app.get('/top-donated-restaurant',  async (req, res) => {
       try {
         // Step 1: Find the restaurant with the most donations
         const topRestaurantAgg = await donationsCollection.aggregate([
