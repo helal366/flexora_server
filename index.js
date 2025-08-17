@@ -1213,7 +1213,7 @@ async function run() {
     });
 
     // Backend: /overview route
-    app.get('/overview', verifyFirebaseToken, verifyEmail, async (req, res) => {
+    app.get('/overview', verifyFirebaseToken, async (req, res) => {
       try {
         // Count approved donations
         const approvedDonations = await donationsCollection.countDocuments({ status: 'Verified' });
@@ -1233,6 +1233,53 @@ async function run() {
         });
       }
     });
+
+    // top charity requester and it's requests
+    app.get('/top-charity-requests', verifyFirebaseToken, verifyEmail, async (req, res) => {
+      try {
+        // Step 1: Find the charity with most requests
+        const topCharityAgg = await requestsCollection.aggregate([
+          {
+            $group: {
+              _id: "$charity_email",
+              totalRequests: { $sum: 1 }
+            }
+          },
+          { $sort: { totalRequests: -1 } },
+          { $limit: 1 }
+        ]).toArray();
+
+        if (!topCharityAgg.length) {
+          return res.status(404).send({ message: "No charity requests found." });
+        }
+
+        const topCharityEmail = topCharityAgg[0]._id;
+
+        // Step 2: Fetch all requests for that charity
+        const charityRequests = await requestsCollection
+          .find({ charity_email: topCharityEmail })
+          .toArray();
+
+        // Step 3: Fetch full charity info from usersCollection
+        const charityInfo = await usersCollection.findOne(
+          { email: topCharityEmail },
+          { projection: { password: 0 } } // exclude sensitive info
+        );
+
+        res.send({
+          charity: charityInfo,
+          totalRequests: topCharityAgg[0].totalRequests,
+          requests: charityRequests
+        });
+      } catch (error) {
+        console.error("Top charity fetch error:", error);
+        res.status(500).send({
+          message: "Failed to fetch top charity data.",
+          error: error?.message
+        });
+      }
+    });
+
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
