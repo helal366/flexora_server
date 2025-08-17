@@ -1341,7 +1341,7 @@ async function run() {
       }
     });
     // recently donations
-    app.get('/donations/recent-verified', verifyFirebaseToken, async (req, res) => {
+    app.get('/recent-verified-donations', verifyFirebaseToken, async (req, res) => {
       try {
         const donations = await donationsCollection
           .find({ donation_status: "Verified" })
