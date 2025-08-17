@@ -1253,7 +1253,7 @@ async function run() {
           return res.status(404).send({ message: "No charity requests found." });
         }
 
-        const topCharityEmail = topCharityAgg[0]._id;
+        const topCharityEmail = topCharityAgg[0]?._id;
 
         // Step 2: Fetch all requests for that charity
         const charityRequests = await requestsCollection
@@ -1269,9 +1269,9 @@ async function run() {
         );
 
         res.send({
-          charity: charityInfo,
-          totalRequests: topCharityAgg[0].totalRequests,
-          requests: charityRequests
+          charity: charityInfo || {},
+          totalRequests: topCharityAgg[0]?.totalRequests || 0,
+          requests: charityRequests || []
         });
       } catch (error) {
         console.error("Top charity fetch error:", error);
