@@ -460,6 +460,21 @@ async function run() {
         res.status(500).send({ message: 'Failed to find charity!', error: error?.message })
       }
     })
+    // get all charity organozations 
+    app.get('/charities', verifyFirebaseToken, verifyEmail, async(req,res)=>{
+      try{
+        const charities=await usersCollection
+        .find({role: 'charity'})
+        .project({password: 0})
+        .toArray()
+        res.send(charities)
+      }catch(error){
+        res.status(500).send({
+          message: 'Charities loading failed.',
+          error: error?.message
+        })
+      }
+    })
 
     // TRANSECTION
     // GET /transactions?email=user@example.com
