@@ -1235,7 +1235,7 @@ async function run() {
     });
 
     // top charity requester and it's requests
-    app.get('/top-charity-requests',  async (req, res) => {
+    app.get('/top-charity-requests', async (req, res) => {
       try {
         // Step 1: Find the charity with most requests
         const topCharityAgg = await requestsCollection.aggregate([
@@ -1281,6 +1281,55 @@ async function run() {
         });
       }
     });
+
+    // top donated restaurant and it's all donations
+    // Top donated restaurant and its donations
+    app.get('/top-donated-restaurant', verifyFirebaseToken, async (req, res) => {
+      try {
+        // Step 1: Find the restaurant with the most donations
+        const topRestaurantAgg = await donationsCollection.aggregate([
+          {
+            $group: {
+              _id: "$restaurant_email",   // group by restaurant email
+              totalDonations: { $sum: 1 } // count donations
+            }
+          },
+          { $sort: { totalDonations: -1 } }, // sort descending
+          { $limit: 1 } // get the top one
+        ]).toArray();
+
+        if (!topRestaurantAgg.length) {
+          return res.status(404).send({ message: "No donations found." });
+        }
+
+        const topRestaurantEmail = topRestaurantAgg[0]._id;
+
+        // Step 2: Fetch all donations for that restaurant
+        const restaurantDonations = await donationsCollection
+          .find({ restaurant_email: topRestaurantEmail })
+          .toArray();
+
+        // Step 3: Fetch full restaurant info from usersCollection
+        const restaurantInfo = await usersCollection.findOne(
+          { organization_email: topRestaurantEmail },
+          { projection: { password: 0 } } // exclude sensitive fields
+        );
+
+        // Step 4: Return structured response
+        res.send({
+          restaurant: restaurantInfo || {},
+          totalDonations: topRestaurantAgg[0].totalDonations || 0,
+          donations: restaurantDonations || []
+        });
+      } catch (error) {
+        console.error("Top donated restaurant fetch error:", error);
+        res.status(500).send({
+          message: "Failed to fetch top donated restaurant data.",
+          error: error?.message
+        });
+      }
+    });
+
 
 
     // Send a ping to confirm a successful connection
