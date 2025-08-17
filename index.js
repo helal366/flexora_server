@@ -1216,13 +1216,13 @@ async function run() {
     app.get('/overview', verifyFirebaseToken, verifyEmail, async (req, res) => {
       try {
         // Count approved donations
-        const approvedDonations = await donationsCollection.countDocuments({ status: Verified });
+        const approvedDonations = await donationsCollection.countDocuments({ status: 'Verified' });
 
         // Count all charity requests
         const charityRequests = await requestsCollection.countDocuments();
 
         // Count picked up donations
-        const pickedUpDonations = await requestsCollection.countDocuments({ request_status: 'Picked Up' });
+        const pickedUpDonations = await requestsCollection.countDocuments({ donation_status: 'Picked Up' });
 
         res.send({ approvedDonations, charityRequests, pickedUpDonations });
       } catch (error) {
