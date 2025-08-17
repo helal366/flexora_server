@@ -1262,7 +1262,9 @@ async function run() {
 
         // Step 3: Fetch full charity info from usersCollection
         const charityInfo = await usersCollection.findOne(
-          { email: topCharityEmail },
+          {
+            organization_email: topCharityEmail
+          },
           { projection: { password: 0 } } // exclude sensitive info
         );
 
