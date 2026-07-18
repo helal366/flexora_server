@@ -60,36 +60,28 @@ The backend interacts with a MongoDB database and verifies user identity and aut
 
 #### 1. Clone the repo:
 
-bash
+```
 git clone https://github.com/Programming-Hero-Web-Course4/b11a12-server-side-Helal366.git
 cd flexora-backend
+```
 
 
 #### 2. Install dependencies:
-
-bash
-
+```
 npm install
+```
 
 #### 3. Create a .env file with required environment variables (see below).
+```
+MONGODB_URI:"YOUR MONGODB URI"
+STRIPE_SECRET_KEY:"YOUR STRIPE SECRET KEY"
+FB_SERVICE_KEY:"YOUR FIREBASE SERVICE KEY"
+```
 
 #### 4. Run the server:
-
-bash
-
+```
 npm start
-
-#### 5. The server will run on the port specified in .env (default 4000).
-
-## Environment Variables
-### Create a .env file with the following keys:
-
-PORT=5000
-MONGODB_URI=your_mongodb_connection_string
-FIREBASE_SERVICE_ACCOUNT_KEY=path_to_your_firebase_service_account_key.json
-
-- **MONGODB_URI:** Your MongoDB connection string
-- **FIREBASE_SERVICE_ACCOUNT_KEY:** Path to your Firebase Admin SDK service account JSON file
+```
 
 ## API Endpoints
 ### Transactions
